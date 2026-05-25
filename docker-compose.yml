@@ -1,0 +1,28 @@
+services:
+  wetter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VERSION=${WETTER_BUILD_TAG:-unknown}
+    ports:
+      - "80:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - WETTER_VERSION=${WETTER_BUILD_TAG:-unknown}
+      - TZ=${TIMEZONE:-Europe/Berlin}
+      - WeatherSettings__HomeAssistantToken=${HA_TOKEN}
+      - WeatherSettings__HomeAssistantEntityId=${HA_ENTITY_ID}
+      - WeatherSettings__HomeAssistantTempEntityId=${HA_TEMP_SENSOR}
+      - WeatherSettings__HomeAssistantHumidityEntityId=${HA_HUMIDITY_SENSOR}
+      - WeatherSettings__HomeAssistantPressureEntityId=${HA_PRESSURE_SENSOR}
+      - WeatherSettings__HomeAssistantWindSpeedEntityId=${HA_WIND_SPEED_SENSOR}
+      - WeatherSettings__HomeAssistantWindDirectionEntityId=${HA_WIND_DIRECTION_SENSOR}
+      - WeatherSettings__HomeAssistantWindGustEntityId=${HA_WIND_GUST_SENSOR}
+      - WeatherSettings__HomeAssistantMaxDailyGustEntityId=${HA_MAX_DAILY_GUST_SENSOR}
+      - WeatherSettings__HomeAssistantSolarRadiationEntityId=${HA_SOLAR_RADIATION_SENSOR}
+      - WeatherSettings__UseHomeAssistant=true
+      - WeatherSettings__Latitude=${LATITUDE:-52.5200}
+      - WeatherSettings__Longitude=${LONGITUDE:-13.4050}
+      - WeatherSettings__CityName=${CITY_NAME:-Berlin}
+    restart: always

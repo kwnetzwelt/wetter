@@ -1,0 +1,451 @@
+@using System.Globalization
+@model wetter.Web.Models.WeatherData
+@{
+    Layout = "_Layout";
+    var culture = new CultureInfo(Model.Language);
+
+    string GetTempHistoryJs() {
+        if (Model.TempHistory == null || !Model.TempHistory.Any()) return "[]";
+        var points = Model.TempHistory.Select(p => new { t = p.Time.ToString("yyyy-MM-ddTHH:mm:ssK"), v = p.Value });
+        return System.Text.Json.JsonSerializer.Serialize(points);
+    }
+}
+
+<div class="d-flex w-100 h-100 overflow-hidden" style="height: 100vh; max-height: 100vh;">
+    <!-- Action Buttons -->
+    <div style="position: absolute; top: 15px; left: 15px; z-index: 1000;">
+        <button id="reload-btn" class="btn btn-outline-secondary btn-lg opacity-25">
+            <i class="bi bi-arrow-clockwise" style="font-size: 24px;"></i>
+        </button>
+    </div>
+    <div style="position: absolute; top: 15px; right: 15px; z-index: 1000;">
+        <button id="fullscreen-btn" class="btn btn-outline-secondary btn-lg opacity-25">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-fullscreen" viewBox="0 0 16 16">
+                <path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5M.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5m15 0.5a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0 0 1h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1 0-1h4A1.5 1.5 0 0 1 16 10.5z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- LEFT COLUMN -->
+    <div id="left-column" class="d-flex flex-column p-4 border-end border-secondary" style="width: 32vw; background: rgba(0,0,0,0.2); backdrop-filter: blur(15px);">
+        <div class="d-flex flex-column align-items-center justify-content-center" style="height: 40vh; margin-bottom: 2vh;">
+            <div class="analog-clock" style="height: 35vh; width: 35vh; max-width: 28vw; position: relative;">
+                <div class="position-absolute w-100 h-100" style="top: 0; left: 0; pointer-events: none; z-index: 2;">
+                    <div class="complication-frosted" style="position: absolute; top: 60%; left: 50%; transform: translateX(-50%); padding: 8px 20px;">
+                        <div id="digital-clock" class="fw-bold" style="font-size: min(2.5rem, 5.5vh); line-height: 1; font-family: 'JetBrains Mono', monospace;">00:00:00</div>
+                    </div>
+                    <div class="complication-frosted text-center" style="position: absolute; top: 84%; left: 50%; transform: translateX(-50%); width: 85%; min-width: 220px; padding: 5px 10px;">
+                        <div id="date-display" class="fw-bold" style="font-size: min(1.1rem, 2vh); text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px;">Laden...</div>
+                    </div>
+                </div>
+                <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; position: relative; z-index: 1;">
+                    <circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="1.5" fill="rgba(0,0,0,0.1)" />
+                    @for (int i = 0; i < 12; i++) { <line x1="50" y1="5" x2="50" y2="12" stroke="currentColor" stroke-width="2.5" transform="rotate(@(i * 30) 50 50)" /> }
+                    <line id="hour-hand" x1="50" y1="50" x2="50" y2="28" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+                    <line id="minute-hand" x1="50" y1="50" x2="50" y2="18" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" />
+                    <line id="second-hand" x1="50" y1="50" x2="50" y2="10" stroke="red" stroke-width="1.5" stroke-linecap="round" />
+                    <circle cx="50" cy="50" r="2.5" fill="currentColor" />
+                </svg>
+            </div>
+        </div>
+        <div class="d-flex flex-column gap-4 flex-grow-1 justify-content-start" id="forecast-container" style="min-height: 0;">
+            <div id="hourly-forecast-row" class="d-flex justify-content-between px-2 w-100 overflow-hidden" style="min-height: 100px;"></div>
+            <div id="daily-forecast-row" class="d-flex justify-content-between gap-2 px-1" style="min-height: 120px;"></div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div id="right-column" class="d-flex flex-column flex-grow-1 p-0 overflow-hidden" style="height: 100vh;">
+        <div id="weather-segment" class="d-flex flex-column justify-content-center overflow-hidden" style="height: 75vh;">
+            @await Html.PartialAsync("_WeatherPartial", Model)
+        </div>
+        <div id="sun-tracker-segment" class="d-flex flex-column justify-content-center align-items-center overflow-hidden px-5" style="height: 25vh; background: rgba(0,0,0,0.15);">
+            <div class="sun-tracker-container w-100">
+                <div class="d-flex justify-content-between mb-2 px-3">
+                    <div class="text-start heavy-shadow">
+                        <i class="bi bi-sunrise fs-4 text-warning"></i>
+                        <div id="sunrise-label" class="fs-5 fw-bold">@Model.Sunrise.ToLocalTime().ToString("HH:mm")</div>
+                    </div>
+                    <div class="text-end heavy-shadow">
+                        <i class="bi bi-sunset fs-4 text-warning"></i>
+                        <div id="sunset-label" class="fs-5 fw-bold">@Model.Sunset.ToLocalTime().ToString("HH:mm")</div>
+                    </div>
+                </div>
+                <div class="position-relative" style="height: 14vh; width: 100%;">
+                    <div id="horizon-css-line"></div>
+                    <canvas id="sun-curve" style="width: 100%; height: 100%; position: relative; z-index: 2;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="debug-status"></div>
+    <div id="version-label" class="position-absolute bottom-0 end-0 p-2 heavy-shadow opacity-25" style="font-size: 0.9rem; z-index: 1000; color: white;">@ViewData["Version"]</div>
+
+    <!-- Dev Tools -->
+    <div id="dev-tools" class="position-absolute bottom-0 start-0 p-3 opacity-0 hover-opacity-100 transition-opacity" style="z-index: 2000;">
+        <div class="card bg-dark border-secondary text-white small" style="width: 200px;">
+            <div class="card-body p-2">
+                <h6 class="card-title mb-2 fs-6">Dev Tools</h6>
+                <div class="mb-2">
+                    <label class="form-label mb-1">Weather</label>
+                    <select id="dev-weather" class="form-select form-select-sm bg-dark text-white border-secondary">
+                        <option value="0">Clear</option>
+                        <option value="1">Partly Cloudy</option>
+                        <option value="3">Overcast</option>
+                        <option value="61">Rain</option>
+                        <option value="71">Snow</option>
+                        <option value="95">Storm</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label mb-1">Season</label>
+                    <select id="dev-month" class="form-select form-select-sm bg-dark text-white border-secondary">
+                        <option value="4">Spring</option>
+                        <option value="7">Summer</option>
+                        <option value="10">Autumn</option>
+                        <option value="1">Winter</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="dev-is-day" checked>
+                        <label class="form-check-label">Daylight</label>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="dev-is-twilight">
+                        <label class="form-check-label">Twilight</label>
+                    </div>
+                </div>
+                <button id="dev-reset" class="btn btn-outline-info btn-sm w-100 mt-1">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // --- State Management ---
+        window.currentAppVersion = '@ViewData["Version"]';
+        window.serverTimeOffset = 0; 
+        window.sunriseTime = new Date('@Model.Sunrise.ToString("yyyy-MM-ddTHH:mm:ssK")');
+        window.sunsetTime = new Date('@Model.Sunset.ToString("yyyy-MM-ddTHH:mm:ssK")');
+        window.lastWeatherCode = @Model.WeatherCode;
+        window.tempHistory = @Html.Raw(GetTempHistoryJs());
+        window.hourlyForecast = [];
+        window.charts = {};
+        window.sunPositionOverride = null;
+        window.isDevOverride = false;
+        window.sunAnimationId = null;
+
+        async function requestWakeLock() { if ('wakeLock' in navigator) { try { window.wakeLock = await navigator.wakeLock.request('screen'); } catch (err) { } } }
+
+        window.getNow = function() { return new Date(Date.now() + window.serverTimeOffset); };
+
+        window.updateClock = function() {
+            const now = window.getNow();
+            $('#digital-clock').text(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`);
+            $('#date-display').text(now.toLocaleDateString('@Model.Language', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }));
+            const hDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
+            const mDeg = now.getMinutes() * 6; const sDeg = now.getSeconds() * 6;
+            $('#hour-hand').attr('transform', `rotate(${hDeg} 50 50)`); $('#minute-hand').attr('transform', `rotate(${mDeg} 50 50)`); $('#second-hand').attr('transform', `rotate(${sDeg} 50 50)`);
+            
+            if (!window.isDevOverride) {
+                const isDay = now >= window.sunriseTime && now <= window.sunsetTime;
+                const newSkyClass = getSkyClassJs(window.lastWeatherCode, isDay);
+                if (newSkyClass !== $('#sky-background').attr('class')) {
+                    $('#sky-background').attr('class', newSkyClass);
+                    if (window.effectManager) window.effectManager.setEffects(window.lastWeatherCode, now.getMonth() + 1, isDay);
+                }
+            }
+        };
+
+        window.applyDevOverride = function() {
+            const weatherCode = parseInt($('#dev-weather').val());
+            const month = parseInt($('#dev-month').val());
+            const isDay = $('#dev-is-day').is(':checked');
+            const isTwilight = $('#dev-is-twilight').is(':checked');
+            window.isDevOverride = true;
+            if (isTwilight) {
+                // Set sun position override close to horizon (0.24 or 0.76 depending on daylight check)
+                window.sunPositionOverride = isDay ? 0.25 : 0.75;
+            } else {
+                window.sunPositionOverride = isDay ? 0.3 : 0.8;
+            }
+            $('#sky-background').attr('class', getSkyClassJs(weatherCode, isDay, isTwilight));
+            if (window.effectManager) window.effectManager.setEffects(weatherCode, month, isDay);
+        };
+
+        function getSkyClassJs(code, isDay, isTwilightOverride) {
+            code = parseInt(code); if (code >= 95) return "sky-storm"; if (code >= 51) return "sky-rain";
+            
+            // Check for twilight (dawn/dusk) under clear or partly cloudy conditions
+            if (code == 0 || code == 1 || code == 2) {
+                if (isTwilightOverride) {
+                    return "sky-twilight";
+                }
+                const now = window.getNow();
+                const diffSunrise = Math.abs(now - window.sunriseTime) / (60 * 1000);
+                const diffSunset = Math.abs(now - window.sunsetTime) / (60 * 1000);
+                if (diffSunrise <= 50 || diffSunset <= 50) {
+                    return "sky-twilight";
+                }
+            }
+
+            if (isDay) { if (code == 1 || code == 2) return "sky-day-partly"; if (code == 3 || (code >= 45 && code <= 48)) return "sky-day-cloudy"; return "sky-day-clear"; }
+            else { if (code >= 1 && code <= 3) return "sky-night-cloudy"; return "sky-night-clear"; }
+        }
+
+        window.getWeatherIconJs = function(code, isDay) {
+            if (isDay === undefined) isDay = true;
+            const icons = { 
+                0: isDay ? "☀️" : "🌙", 
+                1: isDay ? "🌤️" : "☁️", 
+                2: isDay ? "⛅" : "☁️", 
+                3: "☁️", 
+                45: "☁️", 
+                48: "☁️", 
+                51: "🌦️", 
+                53: "🌦️", 
+                55: "🌦️", 
+                56: "🌨️", 
+                57: "🌨️", 
+                61: "🌧️", 
+                63: "🌧️", 
+                65: "🌧️", 
+                66: "🌨️", 
+                67: "🌨️", 
+                71: "❄️", 
+                73: "❄️", 
+                75: "❄️", 
+                77: "❄️", 
+                80: "🌧️", 
+                81: "🌧️", 
+                82: "🌧️", 
+                85: "🌨️", 
+                86: "🌨️", 
+                95: "⛈️", 
+                96: "⛈️", 
+                99: "⛈️" 
+            };
+            return icons[code] || "❓";
+        };
+
+        window.animateValue = function(obj, target, suffix) {
+            const currentStr = obj.text().replace(suffix, "").replace(",", ".");
+            let current = parseFloat(currentStr) || 0; if (Math.abs(current - target) < 0.05) return;
+            const duration = 2000; const intervalMs = 50; const steps = duration / intervalMs;
+            const step = Math.max(0.1, Math.abs(target - current) / steps);
+            const interval = setInterval(() => {
+                if (current < target) current = Math.min(target, current + step); else current = Math.max(target, current - step);
+                obj.text(current.toFixed(1).replace(".", ",") + suffix);
+                if (Math.abs(current - target) < 0.05) { clearInterval(interval); obj.text(target.toFixed(1).replace(".", ",") + suffix); }
+            }, intervalMs); window.activeIntervals.push(interval);
+        };
+
+        // --- CHART.JS INTEGRATION (CARDS ONLY) ---
+        function initSparkline(id, color) {
+            const ctx = document.getElementById(id); if (!ctx) return null;
+            return new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: color, borderWidth: 2, fill: true, backgroundColor: color + '15', pointRadius: 0, tension: 0.45 }] },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+        }
+
+        function updateChartData(chart, history) {
+            if (!chart || !history || history.length < 2) return;
+            const raw = history.map(p => ({ v: p.value ?? p.Value ?? p.v }));
+            const maxPoints = 15; let sampled = [];
+            if (raw.length > maxPoints) {
+                const step = raw.length / maxPoints;
+                for (let i = 0; i < maxPoints; i++) sampled.push(raw[Math.floor(i * step)]);
+                sampled.push(raw[raw.length-1]);
+            } else sampled = raw;
+            chart.data.labels = sampled.map(() => "");
+            chart.data.datasets[0].data = sampled.map(p => p.v);
+            chart.update('none');
+        }
+
+        window.drawSunCurve = function() {
+            const canvas = document.getElementById('sun-curve'); if (!canvas) return; const ctx = canvas.getContext('2d');
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
+            const width = canvas.width, height = canvas.height, vPadding = 25, hPadding = 60, chartHeight = height - (vPadding * 2), chartWidth = width - (hPadding * 2);
+            const now = window.getNow();
+            const dayStart = new Date(now); dayStart.setHours(0,0,0,0);
+            const totalMs = 24 * 60 * 60 * 1000, horizonY = height / 2;
+
+            function getSunY(t) {
+                const sRT = (window.sunriseTime - dayStart) / totalMs, sST = (window.sunsetTime - dayStart) / totalMs;
+                if (t >= sRT && t <= sST) { const rT = (t - sRT) / (sST - sRT); return horizonY - Math.sin(Math.PI * rT) * (chartHeight / 2); }
+                else { let rT; const nD = (1 - sST) + sRT; if (t < sRT) rT = (t + (1 - sST)) / nD; else rT = (t - sST) / nD; return horizonY + Math.sin(Math.PI * rT) * (chartHeight / 2); }
+            }
+            
+            ctx.clearRect(0, 0, width, height);
+
+            // Temperature Polyline with Min/Max
+            let combined = [];
+            if (window.tempHistory) window.tempHistory.forEach(p => { 
+                const t = new Date(p.t || p.time || p.Time); 
+                if (t >= dayStart && t <= now) combined.push({ t: t, v: p.v ?? p.value ?? p.Value }); 
+            });
+            if (window.hourlyForecast) window.hourlyForecast.forEach(h => { 
+                const t = new Date(h.time || h.Time); 
+                if (t > now && t < new Date(dayStart.getTime() + totalMs)) combined.push({ t: t, v: h.temp ?? h.Temp }); 
+            });
+            combined.sort((a,b) => a.t - b.t);
+
+            if (combined.length > 1) {
+                const vals = combined.map(p => p.v); const tMin = Math.min(...vals), tMax = Math.max(...vals), tRange = Math.max(2, tMax - tMin);
+                const minIdx = vals.indexOf(tMin); const maxIdx = vals.indexOf(tMax);
+                const points = combined.map(p => {
+                    const tNorm = (p.t - dayStart) / totalMs;
+                    return { x: hPadding + tNorm * chartWidth, y: (height - vPadding) - ((p.v - tMin) / tRange) * chartHeight };
+                });
+
+                ctx.save(); ctx.beginPath(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+                ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                points.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+                ctx.stroke();
+
+                // Labels
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.shadowBlur = 5;
+                const drawLabel = (idx, isMax) => {
+                    const p = points[idx]; const val = combined[idx].v;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillText(`${val.toFixed(1)}°`, p.x, p.y + (isMax ? -12 : 22));
+                };
+                if (minIdx !== -1) drawLabel(minIdx, false);
+                if (maxIdx !== -1 && maxIdx !== minIdx) drawLabel(maxIdx, true);
+                ctx.restore();
+            }
+
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 4; ctx.setLineDash([10, 10]);
+            for (let x = 0; x <= chartWidth; x++) { const t = x / chartWidth; const y = getSunY(t); if (x === 0) ctx.moveTo(x + hPadding, y); else ctx.lineTo(x + hPadding, y); }
+            ctx.stroke(); ctx.setLineDash([]);
+            
+            const sunT = window.sunPositionOverride !== null ? window.sunPositionOverride : (now - dayStart) / totalMs;
+            const sunX = hPadding + sunT * chartWidth, sunY = getSunY(sunT);
+            const baseRotation = (Date.now() / 1000); ctx.save(); ctx.translate(sunX, sunY); ctx.rotate(baseRotation); ctx.fillStyle = '#ffc107';
+            for (let i = 0; i < 10; i++) {
+                const sparkle = Math.sin(Date.now() / 450 + i * 0.8) * 3;
+                ctx.beginPath(); ctx.moveTo(10, -3); ctx.lineTo(22 + sparkle, 0); ctx.lineTo(10, 3); ctx.fill(); ctx.rotate((Math.PI * 2) / 10);
+            }
+            ctx.restore(); ctx.beginPath(); ctx.arc(sunX, sunY, 9, 0, Math.PI * 2); ctx.fillStyle = '#ffc107'; ctx.shadowBlur = 15; ctx.shadowColor = '#ffc107'; ctx.fill(); ctx.shadowBlur = 0;
+            window.sunAnimationId = requestAnimationFrame(window.drawSunCurve);
+        };
+
+        window.updateWeather = function() {
+            $.get('/Home/Weather').done(function(data) {
+                const d = data;
+                if (d.version && d.version !== window.currentAppVersion) { location.reload(); return; }
+
+                if (!window.isDevOverride) { window.lastWeatherCode = d.weatherCode ?? d.WeatherCode; }
+
+                const newTempHistory = d.tempHistory || d.TempHistory;
+                if (newTempHistory && newTempHistory.length > 0) window.tempHistory = newTempHistory;
+                window.hourlyForecast = d.hourly || d.Hourly || [];
+                
+                const sunrise = d.sunrise || d.Sunrise; const sunset = d.sunset || d.Sunset;
+                if (sunrise) window.sunriseTime = new Date(sunrise); if (sunset) window.sunsetTime = new Date(sunset);
+                
+                const now = window.getNow();
+                const isDay = now >= window.sunriseTime && now <= window.sunsetTime;
+                
+                window.animateValue($('#current-temperature'), parseFloat(d.currentTemperature ?? d.CurrentTemperature), "°C");
+                window.animateValue($('#feels-like-temp'), parseFloat(d.currentTemperature ?? d.CurrentTemperature), "°C");
+                $('#current-weather-icon').text(window.getWeatherIconJs(window.lastWeatherCode, isDay));
+                $('#city-name').text(d.cityName || d.CityName);
+                
+                // Detailed Weather Stats
+                window.animateValue($('#current-pressure'), parseFloat(d.pressure ?? d.Pressure ?? 0), " hPa");
+                window.animateValue($('#current-wind'), parseFloat(d.windSpeed ?? d.WindSpeed ?? 0), " km/h");
+                window.animateValue($('#current-gust'), parseFloat(d.windGust ?? d.WindGust ?? 0), "");
+                window.animateValue($('#max-gust'), parseFloat(d.maxDailyGust ?? d.MaxDailyGust ?? 0), "");
+                window.animateValue($('#current-humidity'), parseFloat(d.humidity ?? d.Humidity ?? 0), "%");
+                window.animateValue($('#current-solar'), parseFloat(d.solarRadiation ?? d.SolarRadiation ?? 0), " W/m²");
+                $('#daylight-status').text(isDay ? "Aktiv" : "Nacht");
+
+                const windDir = d.windDirection ?? d.WindDirection;
+                if (windDir !== null) { $('#wind-needle-svg').css('transform', `rotate(${windDir}deg)`); $('#wind-dir-text').text(`${Math.round(windDir)}°`); }
+                
+                updateChartData(window.charts.wind, d.windHistory || d.WindHistory);
+                updateChartData(window.charts.humi, d.humidityHistory || d.HumidityHistory);
+                updateChartData(window.charts.solar, d.solarHistory || d.SolarHistory);
+
+                if (window.hourlyForecast) {
+                    let hHtml = ''; window.hourlyForecast.slice(0, 6).forEach(h => {
+                        const hTime = new Date(h.time || h.Time);
+                        const t = hTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const hIsDay = hTime >= window.sunriseTime && hTime <= window.sunsetTime;
+                        hHtml += `<div class="text-center" style="flex: 1;"><div style="font-size: 1rem; opacity: 0.8;">${t}</div><span class="d-block my-1" style="font-size: 2.2rem;">${window.getWeatherIconJs(h.weatherCode ?? h.WeatherCode, hIsDay)}</span><div class="fw-bold fs-4">${Math.round(h.temp ?? h.Temp)}°</div></div>`;
+                    });
+                    $('#hourly-forecast-row').html(hHtml);
+                }
+                const daily = d.forecast || d.Forecast;
+                if (daily) {
+                    let dHtml = ''; daily.slice(0, 5).forEach(day => {
+                        const dt = new Date(day.date || day.Date).toLocaleDateString('@Model.Language', { weekday: 'short' });
+                        const code = day.weatherCode ?? day.WeatherCode; const maxT = day.maxTemp ?? day.MaxTemp; const minT = day.minTemp ?? day.MinTemp;
+                        dHtml += `<div class="forecast-day border d-flex flex-column justify-content-between p-3 text-center" style="flex: 1; min-width: 0; background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2) !important; border-radius: 12px;"><div class="fs-6 fw-bold">${dt}</div><span class="d-block my-1" style="font-size: 2.2rem;">${window.getWeatherIconJs(code, true)}</span><div><div class="fw-bold fs-4">${Math.round(maxT)}°</div><div class="opacity-75 fs-6">${Math.round(minT)}°</div></div></div>`;
+                    });
+                    $('#daily-forecast-row').html(dHtml);
+                }
+                
+                $('#sunrise-label').text(window.sunriseTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                $('#sunset-label').text(window.sunsetTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            });
+        };
+
+        window.checkServerStatus = function() {
+            const start = Date.now(); $.ajax({ url: '/api/health', timeout: 5000, cache: false }).done(function(data) {
+                const end = Date.now(); if (data.serverTime) window.serverTimeOffset = (new Date(data.serverTime).getTime() + (end - start)/2) - end;
+                if (data.version && data.version !== window.currentAppVersion) { window.performSoftReload(); }
+            });
+        };
+
+        window.performSoftReload = function() {
+            $.ajax({ url: '/', cache: false, dataType: 'html', success: function(data) {
+                if (window.activeIntervals) window.activeIntervals.forEach(clearInterval); window.activeIntervals = [];
+                if (window.sunAnimationId) cancelAnimationFrame(window.sunAnimationId);
+                const parser = new DOMParser(); const newDoc = parser.parseFromString(data, 'text/html');
+                $('body').html(newDoc.querySelector('body').innerHTML);
+            }});
+        };
+
+        $(document).ready(function() {
+            window.activeIntervals = window.activeIntervals || [];
+            window.updateClock(); window.activeIntervals.push(setInterval(window.updateClock, 1000));
+            window.drawSunCurve();
+            window.charts.wind = initSparkline('chart-wind', '#ffffff');
+            window.charts.humi = initSparkline('chart-humi', '#ffffff');
+            window.charts.solar = initSparkline('chart-solar', '#ffc107');
+
+            requestWakeLock(); window.activeIntervals.push(setInterval(requestWakeLock, 30000));
+            window.updateWeather(); window.activeIntervals.push(setInterval(window.updateWeather, 5000));
+            window.checkServerStatus(); window.activeIntervals.push(setInterval(window.checkServerStatus, 10000));
+            
+            // Persistent Click Listeners
+            $(document).on('click', '#fullscreen-btn', () => document.documentElement.requestFullscreen());
+            $(document).on('click', '#reload-btn', () => window.performSoftReload());
+            $(document).on('change', '#dev-weather, #dev-month, #dev-is-day, #dev-is-twilight', window.applyDevOverride);
+            $(document).on('click', '#dev-reset', () => window.performSoftReload());
+            
+            if (window.effectManager) window.effectManager.setEffects(window.lastWeatherCode, new Date().getMonth() + 1, @(Model.IsDaylight ? "true" : "false"));
+        });
+    })();
+</script>
+
+<style>
+    .transition-opacity { transition: opacity 0.3s ease; } .hover-opacity-100:hover { opacity: 1.0 !important; }
+    #debug-status { position: fixed; bottom: 5px; left: 5px; font-size: 10px; opacity: 0.3; z-index: 1000; }
+    .analog-clock { width: 200px; height: 200px; } .analog-clock svg { width: 100%; height: 100%; }
+    .heavy-shadow { text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+    .complication-frosted { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; display: inline-block; }
+    #horizon-css-line { position: absolute; top: 50%; left: 5%; width: 90%; height: 1px; background: rgba(255, 255, 255, 0.3); z-index: 1; }
+</style>

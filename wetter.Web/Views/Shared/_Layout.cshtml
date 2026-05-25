@@ -1,0 +1,70 @@
+@using wetter.Web.Models
+@model WeatherData
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Wetter Clock</title>
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #000000; }
+        .theme-dark { --bg-color: #000000; --text-color: #ffffff; }
+        body {
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif, 'Noto Color Emoji';
+        }
+        #sky-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2; /* LOWER THAN PARTICLES */
+            transition: all 2s ease-in-out;
+        }
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* HIGHER THAN SKY, LOWER THAN CONTENT */
+            pointer-events: none;
+        }
+        .sky-day-clear { background: linear-gradient(to bottom, #0072ff 0%, #00c6ff 100%); }
+        .sky-day-partly { background: linear-gradient(to bottom, #4facfe 0%, #a8edea 100%); }
+        .sky-day-cloudy { background: linear-gradient(to bottom, #757f9a 0%, #d7dde8 100%); }
+        .sky-twilight { background: linear-gradient(to bottom, #0c1435 0%, #2b1055 40%, #75225b 75%, #b55243 100%); }
+        .sky-night-clear { background: linear-gradient(to bottom, #020111 10%, #3a7bd5 100%); }
+        .sky-night-cloudy { background: linear-gradient(to bottom, #232526 0%, #414345 100%); }
+        .sky-rain { background: linear-gradient(to bottom, #485563 0%, #29323c 100%); }
+        .sky-storm { background: linear-gradient(to bottom, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+    </style>
+</head>
+<body>
+    <div id="sky-background" class="sky-day-clear"></div>
+    <canvas id="particles-canvas"></canvas>
+    <main role="main" class="h-100">
+        @RenderBody()
+    </main>
+</body>
+</html>
