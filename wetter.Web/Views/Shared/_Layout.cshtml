@@ -58,6 +58,59 @@
         .sky-night-cloudy { background: linear-gradient(to bottom, #232526 0%, #414345 100%); }
         .sky-rain { background: linear-gradient(to bottom, #485563 0%, #29323c 100%); }
         .sky-storm { background: linear-gradient(to bottom, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+
+        /* GitLab Badge Styling */
+        .gitlab-badge-container {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            pointer-events: auto;
+        }
+        .gitlab-badge-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px) saturate(120%);
+            -webkit-backdrop-filter: blur(10px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 30px;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.82rem;
+            font-weight: 500;
+            text-decoration: none;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .gitlab-badge-link:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(252, 109, 38, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(252, 109, 38, 0.15), 0 0 12px rgba(252, 109, 38, 0.1);
+        }
+        .gitlab-badge-link:active {
+            transform: translateY(0);
+        }
+        .gitlab-icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: #fca326;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .gitlab-badge-link:hover .gitlab-icon-wrapper {
+            transform: scale(1.15) rotate(15deg);
+            color: #fc6d26;
+        }
+        .gitlab-text {
+            transition: opacity 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -66,5 +119,15 @@
     <main role="main" class="h-100">
         @RenderBody()
     </main>
+
+    <!-- GitLab Repository Badge -->
+    <div class="gitlab-badge-container">
+        <a href="https://gitlab.qwirl.eu/kai.wegner/wetter" target="_blank" rel="noopener noreferrer" class="gitlab-badge-link">
+            <span class="gitlab-icon-wrapper">
+                <i class="bi bi-gitlab"></i>
+            </span>
+            <span class="gitlab-text">Source Code</span>
+        </a>
+    </div>
 </body>
 </html>

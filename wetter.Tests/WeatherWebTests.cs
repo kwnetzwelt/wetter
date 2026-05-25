@@ -49,6 +49,19 @@ public class WeatherWebTests
     }
 
     [Test]
+    public async Task Get_Index_ContainsGitLabBadgeLink()
+    {
+        // Act
+        var response = await _client.GetAsync("/");
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.That(content, Does.Contain("gitlab-badge-container"), "GitLab badge container should be present");
+        Assert.That(content, Does.Contain("https://gitlab.qwirl.eu/kai.wegner/wetter"), "GitLab repository source link should be correct and present");
+    }
+
+    [Test]
     public async Task Get_HealthApi_ReturnsHealthyStatus()
     {
         // Act
