@@ -104,3 +104,10 @@ Settings are parsed from `appsettings.json` or overridden via environment variab
    ```bash
    dotnet test wetter.Tests/wetter.Tests.csproj
    ```
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
