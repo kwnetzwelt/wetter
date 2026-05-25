@@ -198,7 +198,7 @@
                 const now = window.getNow();
                 const diffSunrise = Math.abs(now - window.sunriseTime) / (60 * 1000);
                 const diffSunset = Math.abs(now - window.sunsetTime) / (60 * 1000);
-                if (diffSunrise <= 50 || diffSunset <= 50) {
+                if (diffSunrise <= 60 || diffSunset <= 60) {
                     return "sky-twilight";
                 }
             }

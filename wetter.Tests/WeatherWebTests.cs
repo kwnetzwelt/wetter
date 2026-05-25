@@ -46,6 +46,7 @@ public class WeatherWebTests
         Assert.That(content, Does.Contain("drawSunCurve()"), "Sun animation should be started");
         Assert.That(content, Does.Contain("checkServerStatus"), "Health check polling should be started");
         Assert.That(content, Does.Contain("performSoftReload"), "Soft reload logic should be present");
+        Assert.That(content, Does.Contain("diffSunrise <= 60 || diffSunset <= 60"), "Twilight check should be 60 minutes (1 hour) before and after sunrise/sunset");
     }
 
     [Test]
