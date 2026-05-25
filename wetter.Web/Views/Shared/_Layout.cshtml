@@ -61,11 +61,11 @@
 
         /* GitLab Badge Styling */
         .gitlab-badge-container {
-            position: fixed;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            margin-top: auto;
+            padding-top: 12px;
+            z-index: 1000;
             pointer-events: auto;
         }
         .gitlab-badge-link {
@@ -119,15 +119,5 @@
     <main role="main" class="h-100">
         @RenderBody()
     </main>
-
-    <!-- GitLab Repository Badge -->
-    <div class="gitlab-badge-container">
-        <a href="https://gitlab.qwirl.eu/kai.wegner/wetter" target="_blank" rel="noopener noreferrer" class="gitlab-badge-link">
-            <span class="gitlab-icon-wrapper">
-                <i class="bi bi-gitlab"></i>
-            </span>
-            <span class="gitlab-text">Source Code</span>
-        </a>
-    </div>
 </body>
 </html>
