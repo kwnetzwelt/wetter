@@ -13,6 +13,7 @@ public class WeatherService : IWeatherService
     public WeatherService(HttpClient httpClient, IOptions<WeatherSettings> settings, ILogger<WeatherService> logger)
     {
         _httpClient = httpClient;
+        _httpClient.Timeout = TimeSpan.FromSeconds(2);
         _settings = settings.Value;
         _logger = logger;
     }
@@ -41,17 +42,20 @@ public class WeatherService : IWeatherService
         {
             // 1. Current State
             var mainState = await GetHaStateAsync(baseUrl, _settings.HomeAssistantEntityId);
-            if (mainState != null)
+            if (mainState == null)
             {
-                var state = mainState.Value.GetProperty("state").GetString() ?? "sunny";
-                var attr = mainState.Value.GetProperty("attributes");
-                weatherData.CurrentTemperature = attr.TryGetProperty("temperature", out var t) ? t.GetDouble() : 0;
+                return weatherData; // HA is unreachable; return empty model immediately to avoid waiting for further timeouts
+            }
+
+            var state = mainState.Value.GetProperty("state").GetString() ?? "sunny";
+            var attr = mainState.Value.GetProperty("attributes");
+            weatherData.CurrentTemperature = attr.TryGetProperty("temperature", out var t) ? (double?)t.GetDouble() : null;
                 weatherData.WeatherCode = MapHaConditionToWmo(state);
                 weatherData.Humidity = attr.TryGetProperty("humidity", out var h) ? h.GetDouble() : null;
                 weatherData.Pressure = attr.TryGetProperty("pressure", out var p) ? p.GetDouble() : null;
                 weatherData.WindSpeed = attr.TryGetProperty("wind_speed", out var ws) ? ws.GetDouble() : null;
                 weatherData.WindDirection = attr.TryGetProperty("wind_bearing", out var wb) ? wb.GetDouble() : null;
-            }
+            
 
             // 2. Granular Sensors
             var tasks = new List<Task<(string key, double? value)>>();
@@ -64,6 +68,9 @@ public class WeatherService : IWeatherService
             if (!string.IsNullOrEmpty(_settings.HomeAssistantMaxDailyGustEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantMaxDailyGustEntityId, "mgus"));
             if (!string.IsNullOrEmpty(_settings.HomeAssistantSolarRadiationEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantSolarRadiationEntityId, "srad"));
             if (!string.IsNullOrEmpty(_settings.HomeAssistantRainEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantRainEntityId, "rain"));
+            if (!string.IsNullOrEmpty(_settings.HomeAssistantBasementTempEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantBasementTempEntityId, "base_temp"));
+            if (!string.IsNullOrEmpty(_settings.HomeAssistantGroundFloorTempEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantGroundFloorTempEntityId, "ground_temp"));
+            if (!string.IsNullOrEmpty(_settings.HomeAssistantUpstairsTempEntityId)) tasks.Add(FetchSensor(baseUrl, _settings.HomeAssistantUpstairsTempEntityId, "up_temp"));
 
             var results = await Task.WhenAll(tasks);
             double? rainValue = null;
@@ -81,6 +88,9 @@ public class WeatherService : IWeatherService
                     case "mgus": weatherData.MaxDailyGust = r.value.Value; break;
                     case "srad": weatherData.SolarRadiation = r.value.Value; break;
                     case "rain": rainValue = r.value.Value; break;
+                    case "base_temp": weatherData.BasementTemperature = r.value.Value; break;
+                    case "ground_temp": weatherData.GroundFloorTemperature = r.value.Value; break;
+                    case "up_temp": weatherData.UpstairsTemperature = r.value.Value; break;
                 }
             }
 
@@ -109,10 +119,10 @@ public class WeatherService : IWeatherService
             var sunState = await GetHaStateAsync(baseUrl, "sun.sun");
             if (sunState != null)
             {
-                var attr = sunState.Value.GetProperty("attributes");
+                var sunAttr = sunState.Value.GetProperty("attributes");
                 // next_rising/setting are ALWAYS UTC ISO strings
-                var nextRising = DateTime.Parse(attr.GetProperty("next_rising").GetString()!).ToUniversalTime();
-                var nextSetting = DateTime.Parse(attr.GetProperty("next_setting").GetString()!).ToUniversalTime();
+                var nextRising = DateTime.Parse(sunAttr.GetProperty("next_rising").GetString()!).ToUniversalTime();
+                var nextSetting = DateTime.Parse(sunAttr.GetProperty("next_setting").GetString()!).ToUniversalTime();
                 
                 // Convert to Local Time ONLY to extract the relative hour/minute
                 var riseLocal = nextRising.ToLocalTime();
@@ -359,7 +369,7 @@ public class WeatherService : IWeatherService
         }
 
         // 3. Humidity/Fog Override
-        if (weatherData.Humidity.HasValue && weatherData.Humidity.Value > 95 && weatherData.CurrentTemperature < 15)
+        if (weatherData.Humidity.HasValue && weatherData.Humidity.Value > 95 && weatherData.CurrentTemperature.HasValue && weatherData.CurrentTemperature.Value < 15)
         {
             // High humidity + low-ish temp often means fog
             if (weatherData.WeatherCode < 45) weatherData.WeatherCode = 45;

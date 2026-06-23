@@ -9,9 +9,15 @@
         var points = Model.TempHistory.Select(p => new { t = p.Time.ToString("yyyy-MM-ddTHH:mm:ssK"), v = p.Value });
         return System.Text.Json.JsonSerializer.Serialize(points);
     }
+
+    string GetSolarHistoryJs() {
+        if (Model.SolarHistory == null || !Model.SolarHistory.Any()) return "[]";
+        var points = Model.SolarHistory.Select(p => new { t = p.Time.ToString("yyyy-MM-ddTHH:mm:ssK"), v = p.Value });
+        return System.Text.Json.JsonSerializer.Serialize(points);
+    }
 }
 
-<div class="d-flex w-100 h-100 overflow-hidden" style="height: 100vh; max-height: 100vh;">
+<div class="dashboard-main-container d-flex w-100 h-100 overflow-hidden">
     <!-- Action Buttons -->
     <div style="position: absolute; top: 15px; left: 15px; z-index: 1000;">
         <button id="reload-btn" class="btn btn-outline-secondary btn-lg opacity-25">
@@ -27,15 +33,12 @@
     </div>
 
     <!-- LEFT COLUMN -->
-    <div id="left-column" class="d-flex flex-column p-4 border-end border-secondary" style="width: 32vw; background: rgba(0,0,0,0.2); backdrop-filter: blur(15px);">
-        <div class="d-flex flex-column align-items-center justify-content-center" style="height: 40vh; margin-bottom: 2vh;">
+    <div id="left-column" class="d-flex flex-column border-end border-secondary">
+        <div class="clock-complications-container d-flex flex-column align-items-center justify-content-center" style="height: 40vh; margin-bottom: 2vh;">
             <div class="analog-clock" style="height: 35vh; width: 35vh; max-width: 28vw; position: relative;">
                 <div class="position-absolute w-100 h-100" style="top: 0; left: 0; pointer-events: none; z-index: 2;">
-                    <div class="complication-frosted" style="position: absolute; top: 60%; left: 50%; transform: translateX(-50%); padding: 8px 20px;">
-                        <div id="digital-clock" class="fw-bold" style="font-size: min(2.5rem, 5.5vh); line-height: 1; font-family: 'JetBrains Mono', monospace;">00:00:00</div>
-                    </div>
-                    <div class="complication-frosted text-center" style="position: absolute; top: 84%; left: 50%; transform: translateX(-50%); width: 85%; min-width: 220px; padding: 5px 10px;">
-                        <div id="date-display" class="fw-bold" style="font-size: min(1.1rem, 2vh); text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px;">Laden...</div>
+                    <div class="text-center" style="position: absolute; top: 62.5%; left: 50%; transform: translate(-50%, -50%); width: 85%;">
+                        <div id="date-display" class="fw-bold text-white opacity-75" style="font-size: min(4.5rem, 9.5vh); line-height: 1; font-family: 'JetBrains Mono', monospace; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));">Laden...</div>
                     </div>
                 </div>
                 <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; position: relative; z-index: 1;">
@@ -49,8 +52,8 @@
             </div>
         </div>
         <div class="d-flex flex-column gap-4 flex-grow-1 justify-content-start" id="forecast-container" style="min-height: 0;">
-            <div id="hourly-forecast-row" class="d-flex justify-content-between px-2 w-100 overflow-hidden" style="min-height: 100px;"></div>
-            <div id="daily-forecast-row" class="d-flex justify-content-between gap-2 px-1" style="min-height: 120px;"></div>
+            <div id="hourly-forecast-row" class="d-flex justify-content-between px-2 w-100 overflow-hidden" style="min-height: 0;"></div>
+            <div id="daily-forecast-row" class="d-flex justify-content-between gap-2 px-1" style="min-height: 0;"></div>
         </div>
 
         <!-- GitLab Repository Badge -->
@@ -65,8 +68,8 @@
     </div>
 
     <!-- RIGHT COLUMN -->
-    <div id="right-column" class="d-flex flex-column flex-grow-1 p-0 overflow-hidden" style="height: 100vh;">
-        <div id="weather-segment" class="d-flex flex-column justify-content-center overflow-hidden" style="height: 75vh;">
+    <div id="right-column" class="d-flex flex-column flex-grow-1 p-0 overflow-hidden">
+        <div id="weather-segment" class="d-flex flex-column justify-content-center overflow-hidden">
             @await Html.PartialAsync("_WeatherPartial", Model)
         </div>
         <div id="sun-tracker-segment" class="d-flex flex-column justify-content-center align-items-center overflow-hidden px-5" style="height: 25vh; background: rgba(0,0,0,0.15);">
@@ -143,6 +146,7 @@
         window.sunsetTime = new Date('@Model.Sunset.ToString("yyyy-MM-ddTHH:mm:ssK")');
         window.lastWeatherCode = @Model.WeatherCode;
         window.tempHistory = @Html.Raw(GetTempHistoryJs());
+        window.solarHistory = @Html.Raw(GetSolarHistoryJs());
         window.hourlyForecast = [];
         window.charts = {};
         window.sunPositionOverride = null;
@@ -155,8 +159,7 @@
 
         window.updateClock = function() {
             const now = window.getNow();
-            $('#digital-clock').text(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`);
-            $('#date-display').text(now.toLocaleDateString('@Model.Language', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }));
+            $('#date-display').text(String(now.getDate()).padStart(2, '0'));
             const hDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
             const mDeg = now.getMinutes() * 6; const sDeg = now.getSeconds() * 6;
             $('#hour-hand').attr('transform', `rotate(${hDeg} 50 50)`); $('#minute-hand').attr('transform', `rotate(${mDeg} 50 50)`); $('#second-hand').attr('transform', `rotate(${sDeg} 50 50)`);
@@ -285,7 +288,10 @@
         window.drawSunCurve = function() {
             const canvas = document.getElementById('sun-curve'); if (!canvas) return; const ctx = canvas.getContext('2d');
             if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
-            const width = canvas.width, height = canvas.height, vPadding = 25, hPadding = 60, chartHeight = height - (vPadding * 2), chartWidth = width - (hPadding * 2);
+            const width = canvas.width, height = canvas.height;
+            const vPadding = Math.max(12, Math.min(45, height * 0.16));
+            const hPadding = Math.max(30, width * 0.08);
+            const chartHeight = height - (vPadding * 2), chartWidth = width - (hPadding * 2);
             const now = window.getNow();
             const dayStart = new Date(now); dayStart.setHours(0,0,0,0);
             const totalMs = 24 * 60 * 60 * 1000, horizonY = height / 2;
@@ -297,6 +303,67 @@
             }
             
             ctx.clearRect(0, 0, width, height);
+
+            // Solar Radiation History Polyline with glowing fill
+            if (window.solarHistory && window.solarHistory.length > 0) {
+                let solarPoints = [];
+                window.solarHistory.forEach(p => {
+                    const t = new Date(p.t || p.time || p.Time);
+                    if (t >= dayStart && t <= now) {
+                        solarPoints.push({ t: t, v: p.v ?? p.value ?? p.Value });
+                    }
+                });
+                solarPoints.sort((a, b) => a.t - b.t);
+
+                if (solarPoints.length > 1) {
+                    const sVals = solarPoints.map(p => p.v);
+                    const sMax = Math.max(...sVals);
+                    const sRange = Math.max(100, sMax);
+                    
+                    const screenPoints = solarPoints.map(p => {
+                        const tNorm = (p.t - dayStart) / totalMs;
+                        const yVal = (height - vPadding) - (p.v / sRange) * (chartHeight * 0.65);
+                        return { x: hPadding + tNorm * chartWidth, y: yVal };
+                    });
+
+                    ctx.save();
+                    
+                    // Draw filled glowing area
+                    ctx.beginPath();
+                    ctx.moveTo(screenPoints[0].x, height - vPadding);
+                    screenPoints.forEach(p => ctx.lineTo(p.x, p.y));
+                    ctx.lineTo(screenPoints[screenPoints.length - 1].x, height - vPadding);
+                    ctx.closePath();
+                    
+                    const fillGrad = ctx.createLinearGradient(0, height - vPadding - chartHeight, 0, height - vPadding);
+                    fillGrad.addColorStop(0, 'rgba(255, 193, 7, 0.08)');
+                    fillGrad.addColorStop(1, 'rgba(255, 193, 7, 0)');
+                    ctx.fillStyle = fillGrad;
+                    ctx.fill();
+
+                    // Draw thin golden stroke
+                    ctx.beginPath();
+                    screenPoints.forEach((p, i) => {
+                        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                    });
+                    ctx.strokeStyle = 'rgba(255, 193, 7, 0.35)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    
+                    if (sMax > 20) {
+                        const maxIdx = sVals.indexOf(sMax);
+                        if (maxIdx !== -1) {
+                            const peakP = screenPoints[maxIdx];
+                            ctx.fillStyle = 'rgba(255, 193, 7, 0.55)';
+                            ctx.font = '10px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(`${Math.round(sMax)} W/m²`, peakP.x, peakP.y - 6);
+                        }
+                    }
+
+                    ctx.restore();
+                }
+            }
 
             // Temperature Polyline with Min/Max
             let combined = [];
@@ -324,11 +391,12 @@
                 ctx.stroke();
 
                 // Labels
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.shadowBlur = 5;
+                const fontSize = Math.max(10, Math.min(16, Math.round(height * 0.1)));
+                ctx.fillStyle = '#fff'; ctx.font = `bold ${fontSize}px sans-serif`; ctx.textAlign = 'center'; ctx.shadowBlur = 5;
                 const drawLabel = (idx, isMax) => {
                     const p = points[idx]; const val = combined[idx].v;
                     ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillText(`${val.toFixed(1)}°`, p.x, p.y + (isMax ? -12 : 22));
+                    ctx.fillText(`${val.toFixed(1)}°`, p.x, p.y + (isMax ? -(fontSize * 0.6) : (fontSize * 1.1)));
                 };
                 if (minIdx !== -1) drawLabel(minIdx, false);
                 if (maxIdx !== -1 && maxIdx !== minIdx) drawLabel(maxIdx, true);
@@ -359,6 +427,8 @@
 
                 const newTempHistory = d.tempHistory || d.TempHistory;
                 if (newTempHistory && newTempHistory.length > 0) window.tempHistory = newTempHistory;
+                const newSolarHistory = d.solarHistory || d.SolarHistory;
+                if (newSolarHistory && newSolarHistory.length > 0) window.solarHistory = newSolarHistory;
                 window.hourlyForecast = d.hourly || d.Hourly || [];
                 
                 const sunrise = d.sunrise || d.Sunrise; const sunset = d.sunset || d.Sunset;
@@ -367,22 +437,85 @@
                 const now = window.getNow();
                 const isDay = now >= window.sunriseTime && now <= window.sunsetTime;
                 
-                window.animateValue($('#current-temperature'), parseFloat(d.currentTemperature ?? d.CurrentTemperature), "°C");
-                window.animateValue($('#feels-like-temp'), parseFloat(d.currentTemperature ?? d.CurrentTemperature), "°C");
+                const curTemp = parseFloat(d.currentTemperature ?? d.CurrentTemperature);
+                if (!isNaN(curTemp)) {
+                    window.animateValue($('#current-temperature'), curTemp, "°C");
+                    window.animateValue($('#feels-like-temp'), curTemp, "°C");
+                    window.animateValue($('#feels-like-temp-inside'), curTemp, "°C");
+                } else {
+                    $('#current-temperature').text("N/A");
+                    $('#feels-like-temp').text("N/A");
+                    $('#feels-like-temp-inside').text("N/A");
+                }
                 $('#current-weather-icon').text(window.getWeatherIconJs(window.lastWeatherCode, isDay));
                 $('#city-name').text(d.cityName || d.CityName);
                 
                 // Detailed Weather Stats
-                window.animateValue($('#current-pressure'), parseFloat(d.pressure ?? d.Pressure ?? 0), " hPa");
-                window.animateValue($('#current-wind'), parseFloat(d.windSpeed ?? d.WindSpeed ?? 0), " km/h");
-                window.animateValue($('#current-gust'), parseFloat(d.windGust ?? d.WindGust ?? 0), "");
-                window.animateValue($('#max-gust'), parseFloat(d.maxDailyGust ?? d.MaxDailyGust ?? 0), "");
-                window.animateValue($('#current-humidity'), parseFloat(d.humidity ?? d.Humidity ?? 0), "%");
-                window.animateValue($('#current-solar'), parseFloat(d.solarRadiation ?? d.SolarRadiation ?? 0), " W/m²");
+                const pressure = parseFloat(d.pressure ?? d.Pressure);
+                if (!isNaN(pressure)) {
+                    window.animateValue($('#current-pressure'), pressure, " hPa");
+                } else {
+                    $('#current-pressure').text("N/A");
+                }
+                const windSpeed = parseFloat(d.windSpeed ?? d.WindSpeed);
+                if (!isNaN(windSpeed)) {
+                    window.animateValue($('#current-wind'), windSpeed, " km/h");
+                    window.animateValue($('#current-wind-inside'), windSpeed, " km/h");
+                } else {
+                    $('#current-wind').text("N/A");
+                    $('#current-wind-inside').text("N/A");
+                }
+                const windGust = parseFloat(d.windGust ?? d.WindGust);
+                if (!isNaN(windGust)) {
+                    window.animateValue($('#current-gust'), windGust, "");
+                    window.animateValue($('#current-gust-inside'), windGust, "");
+                } else {
+                    $('#current-gust').text("N/A");
+                    $('#current-gust-inside').text("N/A");
+                }
+                const maxGust = parseFloat(d.maxDailyGust ?? d.MaxDailyGust);
+                if (!isNaN(maxGust)) {
+                    window.animateValue($('#max-gust'), maxGust, "");
+                    window.animateValue($('#max-gust-inside'), maxGust, "");
+                } else {
+                    $('#max-gust').text("N/A");
+                    $('#max-gust-inside').text("N/A");
+                }
+                const humidity = parseFloat(d.humidity ?? d.Humidity);
+                if (!isNaN(humidity)) {
+                    window.animateValue($('#current-humidity'), humidity, "%");
+                    window.animateValue($('#current-humidity-inside'), humidity, "%");
+                } else {
+                    $('#current-humidity').text("N/A");
+                    $('#current-humidity-inside').text("N/A");
+                }
+                const solar = parseFloat(d.solarRadiation ?? d.SolarRadiation);
+                if (!isNaN(solar)) {
+                    window.animateValue($('#current-solar'), solar, " W/m²");
+                    window.animateValue($('#current-solar-inside'), solar, " W/m²");
+                } else {
+                    $('#current-solar').text("N/A");
+                    $('#current-solar-inside').text("N/A");
+                }
                 $('#daylight-status').text(isDay ? "Aktiv" : "Nacht");
+                $('#daylight-status-inside').text(isDay ? "AKTIV" : "NACHT");
 
-                const windDir = d.windDirection ?? d.WindDirection;
-                if (windDir !== null) { $('#wind-needle-svg').css('transform', `rotate(${windDir}deg)`); $('#wind-dir-text').text(`${Math.round(windDir)}°`); }
+                // New 16:9 house blueprint dynamic updates
+                const upTemp = parseFloat(d.upstairsTemperature ?? d.UpstairsTemperature);
+                const groundTemp = parseFloat(d.groundFloorTemperature ?? d.GroundFloorTemperature);
+                const baseTemp = parseFloat(d.basementTemperature ?? d.BasementTemperature);
+
+                if (!isNaN(upTemp)) window.animateValue($('#house-upstairs-temp'), upTemp, "°C"); else $('#house-upstairs-temp').text("N/A");
+                if (!isNaN(groundTemp)) window.animateValue($('#house-ground-temp'), groundTemp, "°C"); else $('#house-ground-temp').text("N/A");
+                if (!isNaN(baseTemp)) window.animateValue($('#house-basement-temp'), baseTemp, "°C"); else $('#house-basement-temp').text("N/A");
+
+                 const windDir = d.windDirection ?? d.WindDirection;
+                 if (windDir !== null && windDir !== undefined) { 
+                     $('#wind-needle-svg').css('transform', `rotate(${windDir}deg)`); 
+                     $('#wind-dir-text').text(`${Math.round(windDir)}°`); 
+                 } else {
+                     $('#wind-dir-text').text("N/A");
+                 }
                 
                 updateChartData(window.charts.wind, d.windHistory || d.WindHistory);
                 updateChartData(window.charts.humi, d.humidityHistory || d.HumidityHistory);
@@ -393,19 +526,19 @@
                         const hTime = new Date(h.time || h.Time);
                         const t = hTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         const hIsDay = hTime >= window.sunriseTime && hTime <= window.sunsetTime;
-                        hHtml += `<div class="text-center" style="flex: 1;"><div style="font-size: 1rem; opacity: 0.8;">${t}</div><span class="d-block my-1" style="font-size: 2.2rem;">${window.getWeatherIconJs(h.weatherCode ?? h.WeatherCode, hIsDay)}</span><div class="fw-bold fs-4">${Math.round(h.temp ?? h.Temp)}°</div></div>`;
+                        hHtml += `<div class="text-center" style="flex: 1;"><div class="hourly-time" style="opacity: 0.8;">${t}</div><span class="hourly-icon d-block my-1">${window.getWeatherIconJs(h.weatherCode ?? h.WeatherCode, hIsDay)}</span><div class="hourly-temp fw-bold">${Math.round(h.temp ?? h.Temp)}°</div></div>`;
                     });
                     $('#hourly-forecast-row').html(hHtml);
                 }
-                const daily = d.forecast || d.Forecast;
-                if (daily) {
-                    let dHtml = ''; daily.slice(0, 5).forEach(day => {
-                        const dt = new Date(day.date || day.Date).toLocaleDateString('@Model.Language', { weekday: 'short' });
-                        const code = day.weatherCode ?? day.WeatherCode; const maxT = day.maxTemp ?? day.MaxTemp; const minT = day.minTemp ?? day.MinTemp;
-                        dHtml += `<div class="forecast-day border d-flex flex-column justify-content-between p-3 text-center" style="flex: 1; min-width: 0; background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2) !important; border-radius: 12px;"><div class="fs-6 fw-bold">${dt}</div><span class="d-block my-1" style="font-size: 2.2rem;">${window.getWeatherIconJs(code, true)}</span><div><div class="fw-bold fs-4">${Math.round(maxT)}°</div><div class="opacity-75 fs-6">${Math.round(minT)}°</div></div></div>`;
-                    });
-                    $('#daily-forecast-row').html(dHtml);
-                }
+                  const daily = d.forecast || d.Forecast;
+                  if (daily) {
+                      let dHtml = ''; daily.slice(0, 5).forEach(day => {
+                          const dt = new Date(day.date || day.Date).toLocaleDateString('@Model.Language', { weekday: 'short' });
+                          const code = day.weatherCode ?? day.WeatherCode; const maxT = day.maxTemp ?? day.MaxTemp; const minT = day.minTemp ?? day.MinTemp;
+                          dHtml += `<div class="forecast-day border d-flex flex-column justify-content-between p-2 text-center" style="flex: 1; min-width: 0; background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2) !important; border-radius: 12px; height: 100%; min-height: 0; overflow: hidden;"><div class="daily-time fw-bold">${dt}</div><span class="d-block my-1 daily-icon">${window.getWeatherIconJs(code, true)}</span><div><div class="fw-bold daily-temp-max">${Math.round(maxT)}°</div><div class="opacity-75 daily-temp-min">${Math.round(minT)}°</div></div></div>`;
+                      });
+                      $('#daily-forecast-row').html(dHtml);
+                  }
                 
                 $('#sunrise-label').text(window.sunriseTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
                 $('#sunset-label').text(window.sunsetTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -452,10 +585,294 @@
 </script>
 
 <style>
+    /* Responsive Orientation Layouts */
+    .dashboard-main-container {
+        height: 100vh;
+        max-height: 100vh;
+    }
+    #left-column {
+        width: min(32vw, 420px);
+        background: rgba(0,0,0,0.2);
+        backdrop-filter: blur(15px);
+        min-height: 0; /* allows content to contract properly */
+        overflow: hidden;
+    }
+    #forecast-container {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    #daily-forecast-row {
+        height: 22vh;
+        min-height: 0;
+    }
+    #right-column {
+        height: 100vh;
+    }
+    #weather-segment {
+        height: 75vh;
+    }
+    #sun-tracker-segment {
+        height: 25vh;
+    }
+
+    /* 9:16 Portrait Support */
+    @@media (orientation: portrait), (max-aspect-ratio: 1/1) {
+        .dashboard-main-container {
+            flex-direction: column !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            overflow: hidden !important;
+        }
+        #left-column {
+            width: 100vw !important;
+            height: 22vh !important;
+            border-end: none !important;
+            border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+            padding: 1.5vh !important;
+        }
+        #right-column {
+            width: 100vw !important;
+            height: 78vh !important;
+            flex-grow: 1 !important;
+            overflow: hidden !important;
+        }
+        #weather-segment {
+            height: 58vh !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+        }
+        #sun-tracker-segment {
+            height: 20vh !important;
+            min-height: 0 !important;
+        }
+        .clock-complications-container {
+            display: none !important;
+        }
+        .analog-clock {
+            height: 15vh !important;
+            width: 15vh !important;
+            max-width: 60vw !important;
+        }
+        #digital-clock {
+            font-size: 2.5vh !important;
+        }
+        #date-display {
+            font-size: 1.1vh !important;
+        }
+        .complication-frosted-clock {
+            padding: 4px 10px !important;
+            top: 55% !important;
+        }
+        .complication-frosted-date {
+            padding: 2px 6px !important;
+            top: 82% !important;
+            width: 75% !important;
+        }
+        #forecast-container {
+            height: 19vh !important;
+            gap: 1vh !important;
+        }
+        #hourly-forecast-row {
+            height: 9vh !important;
+            min-height: 0 !important;
+        }
+        #daily-forecast-row {
+            height: 9vh !important;
+            min-height: 0 !important;
+            gap: 1.5vh !important;
+        }
+        .forecast-day {
+            padding: 0.5vh !important;
+        }
+        .forecast-day div.fs-6 {
+            font-size: 1.2vh !important;
+        }
+        .forecast-day span {
+            font-size: 2.5vh !important;
+            margin: 0.1vh 0 !important;
+        }
+        .forecast-day div.fs-4 {
+            font-size: 1.8vh !important;
+        }
+        .forecast-day div.fs-6.opacity-75 {
+            font-size: 1.2vh !important;
+        }
+        /* Hourly labels text size */
+        .hourly-time {
+            font-size: 1.2vh !important;
+        }
+        .hourly-icon {
+            font-size: 2.5vh !important;
+            margin: 0.1vh 0 !important;
+        }
+        .hourly-temp {
+            font-size: 1.8vh !important;
+        }
+        /* Hide GitLab Badge in portrait to save vertical space */
+        .gitlab-badge-container {
+            display: none !important;
+        }
+        #right-column {
+            width: 100vw !important;
+            height: 85vh !important;
+            flex-grow: 1 !important;
+            overflow: hidden !important;
+        }
+        #weather-segment {
+            height: 65vh !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+        }
+        #sun-tracker-segment {
+            height: 20vh !important;
+            min-height: 0 !important;
+        }
+        .clock-complications-container {
+            display: none !important;
+        }
+        .analog-clock {
+            height: 15vh !important;
+            width: 15vh !important;
+            max-width: 60vw !important;
+        }
+        #digital-clock {
+            font-size: 2.5vh !important;
+        }
+        #date-display {
+            font-size: 1.1vh !important;
+        }
+        .complication-frosted-clock {
+            padding: 4px 10px !important;
+            top: 55% !important;
+        }
+        .complication-frosted-date {
+            padding: 2px 6px !important;
+            top: 82% !important;
+            width: 75% !important;
+        }
+        #forecast-container {
+            height: 13vh !important;
+            gap: 1vh !important;
+        }
+        #hourly-forecast-row {
+            height: 6vh !important;
+            min-height: 0 !important;
+        }
+        #daily-forecast-row {
+            height: 6vh !important;
+            min-height: 0 !important;
+            gap: 1vh !important;
+        }
+        .forecast-day {
+            padding: 0.5vh !important;
+        }
+        .forecast-day div.fs-6 {
+            font-size: 1vh !important;
+        }
+        .forecast-day span {
+            font-size: 1.8vh !important;
+            margin: 0.1vh 0 !important;
+        }
+        .forecast-day div.fs-4 {
+            font-size: 1.3vh !important;
+        }
+        .forecast-day div.fs-6.opacity-75 {
+            font-size: 1vh !important;
+        }
+        /* Hourly labels text size */
+        #hourly-forecast-row .text-center {
+            font-size: 1.2vh !important;
+        }
+        #hourly-forecast-row .text-center div {
+            font-size: 1vh !important;
+        }
+        #hourly-forecast-row .text-center span {
+            font-size: 1.8vh !important;
+            margin: 0.1vh 0 !important;
+        }
+        #hourly-forecast-row .text-center div.fw-bold {
+            font-size: 1.3vh !important;
+        }
+        /* Hide GitLab Badge in portrait to save vertical space */
+        .gitlab-badge-container {
+            display: none !important;
+        }
+    }
+
     .transition-opacity { transition: opacity 0.3s ease; } .hover-opacity-100:hover { opacity: 1.0 !important; }
     #debug-status { position: fixed; bottom: 5px; left: 5px; font-size: 10px; opacity: 0.3; z-index: 1000; }
     .analog-clock { width: 200px; height: 200px; } .analog-clock svg { width: 100%; height: 100%; }
     .heavy-shadow { text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
     .complication-frosted { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; display: inline-block; }
     #horizon-css-line { position: absolute; top: 50%; left: 5%; width: 90%; height: 1px; background: rgba(255, 255, 255, 0.3); z-index: 1; }
+    
+    .hourly-time {
+        font-size: clamp(0.8rem, 1.8vh, 1.25rem);
+    }
+    .hourly-icon {
+        font-size: clamp(1.8rem, 4vh, 2.8rem);
+    }
+    .hourly-temp {
+        font-size: clamp(1.1rem, 2.2vh, 1.6rem);
+    }
+    .daily-time {
+        font-size: clamp(0.8rem, 1.8vh, 1.25rem);
+    }
+    .daily-icon {
+        font-size: clamp(1.8rem, 4vh, 2.8rem);
+    }
+    .daily-temp-max {
+        font-size: clamp(1.1rem, 2.2vh, 1.6rem);
+    }
+    .daily-temp-min {
+        font-size: clamp(0.8rem, 1.8vh, 1.25rem);
+    }
+
+    /* Short-screen Landscape Support (VGA/SVGA legacy low-res) */
+    @@media (orientation: landscape) and (max-height: 700px) {
+        #left-column {
+            overflow: hidden !important;
+            padding: clamp(0.5rem, 1.5vh, 1.5rem) !important;
+        }
+        .clock-complications-container {
+            height: 25vh !important;
+            margin-bottom: 0.5vh !important;
+        }
+        .analog-clock {
+            height: 20vh !important;
+            width: 20vh !important;
+        }
+        #forecast-container {
+            gap: clamp(0.2rem, 1vh, 1rem) !important;
+        }
+        #hourly-forecast-row {
+            height: auto !important;
+            max-height: 12vh !important;
+        }
+        #daily-forecast-row {
+            height: 20vh !important;
+            max-height: 20vh !important;
+        }
+        .forecast-day {
+            padding: clamp(2px, 0.8vh, 8px) !important;
+        }
+        .forecast-day span {
+            font-size: clamp(1rem, 1.8vh, 1.8rem) !important;
+        }
+        .forecast-day div.fs-4 {
+            font-size: clamp(0.8rem, 1.3vh, 1.3rem) !important;
+        }
+        .hourly-time {
+            font-size: clamp(0.6rem, 1.1vh, 1rem) !important;
+        }
+        .hourly-icon {
+            font-size: clamp(1.2rem, 2.2vh, 2rem) !important;
+            margin: 0.1vh 0 !important;
+        }
+        .hourly-temp {
+            font-size: clamp(0.8rem, 1.4vh, 1.3rem) !important;
+        }
+    }
 </style>

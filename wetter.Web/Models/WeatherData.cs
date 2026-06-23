@@ -2,7 +2,7 @@ namespace wetter.Web.Models;
 
 public class WeatherData
 {
-    public double CurrentTemperature { get; set; }
+    public double? CurrentTemperature { get; set; }
     public double? Humidity { get; set; }
     public double? Pressure { get; set; }
     public double? WindSpeed { get; set; }
@@ -10,6 +10,9 @@ public class WeatherData
     public double? WindGust { get; set; }
     public double? MaxDailyGust { get; set; }
     public double? SolarRadiation { get; set; }
+    public double? BasementTemperature { get; set; }
+    public double? GroundFloorTemperature { get; set; }
+    public double? UpstairsTemperature { get; set; }
     
     // History
     public List<HistoryPoint> TempHistory { get; set; } = new();

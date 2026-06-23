@@ -22,94 +22,325 @@
     };
 }
 
-<div class="weather-station-container w-100 h-100 d-flex flex-column px-4">
-    
-    <!-- Top Row: Impactful Current Conditions -->
-    <div class="d-flex justify-content-between align-items-center mb-3 mt-2" style="height: 35%;">
-        <div class="d-flex align-items-center gap-4">
-            <span id="current-weather-icon" style="font-size: clamp(5rem, 12vw, 10rem); filter: drop-shadow(0 0 15px rgba(0,0,0,0.5));">@GetWeatherIcon(Model.WeatherCode, Model.IsDaylight)</span>
-            <div class="d-flex flex-column text-start">
-                <h2 id="current-temperature" style="font-size: clamp(5rem, 12vw, 10rem); font-weight: 800; margin-bottom: -10px; white-space: nowrap; line-height: 1;">@Model.CurrentTemperature.ToString("F1")°C</h2>
-                <div class="d-flex align-items-baseline gap-4">
-                    <div id="city-name" class="heavy-shadow opacity-75 fs-2">@Model.CityName</div>
-                    <div id="current-pressure" class="heavy-shadow opacity-50 fs-3">@((Model.Pressure ?? 0).ToString("F0")) <span class="fs-5">hPa</span></div>
-                </div>
-            </div>
-        </div>
+<div class="weather-station-container w-100 h-100 px-3 py-2">
+    <div class="weather-station-grid h-100">
         
-        <!-- Large Wind Compass -->
-        <div class="d-flex flex-column align-items-center">
-            <div class="position-relative" style="width: clamp(140px, 18vh, 180px); height: clamp(140px, 18vh, 180px);">
-                <svg viewBox="0 0 100 100" class="w-100 h-100">
-                    <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
-                    @for (int i = 0; i < 360; i += 30) { <line x1="50" y1="4" x2="50" y2="10" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" transform="rotate(@i 50 50)" /> }
-                    <text x="50" y="16" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">N</text>
-                    <text x="50" y="94" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">S</text>
-                    <text x="14" y="54" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">W</text>
-                    <text x="86" y="54" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">E</text>
-                    <g id="wind-needle-svg" style="transition: transform 2s ease-in-out; transform-origin: center; transform: rotate(@(Model.WindDirection ?? 0)deg);">
-                        <line x1="50" y1="50" x2="50" y2="15" stroke="#ffc107" stroke-width="4" stroke-linecap="round" />
-                        <path d="M 50 8 L 58 24 L 42 24 Z" fill="#ffc107" />
-                        <circle cx="50" cy="50" r="5" fill="#ffc107" />
-                        <line x1="50" y1="50" x2="50" y2="70" stroke="rgba(255,193,7,0.6)" stroke-width="3" stroke-dasharray="3,3" />
-                    </g>
-                </svg>
-                <div class="position-absolute top-50 start-50 translate-middle fs-4 fw-bold heavy-shadow mt-3" id="wind-dir-text">@(Model.WindDirection?.ToString("F0") ?? "0")°</div>
-            </div>
-            <div class="mt-2 fs-4 opacity-75 fw-bold">Windrichtung</div>
-        </div>
-    </div>
-
-    <!-- Massive Sensor Grid -->
-    <div class="flex-grow-1 d-grid gap-3 mb-3" style="grid-template-columns: repeat(3, 1fr); min-height: 0;">
-        <!-- Wind Stats Card -->
-        <div class="complication-frosted d-flex flex-column justify-content-center p-3 position-relative overflow-hidden">
-            <div class="position-absolute start-0 bottom-0 w-100 h-40 opacity-50">
-                <canvas id="chart-wind"></canvas>
-            </div>
-            <div class="fs-5 opacity-75 mb-1 z-index-1"><i class="bi bi-wind"></i> Windgeschwindigkeit</div>
-            <div class="fw-bold z-index-1" id="current-wind" style="font-size: clamp(2rem, 5vh, 4rem); line-height: 1;">@((Model.WindSpeed ?? 0).ToString("F1")) <span class="fs-5 opacity-50">km/h</span></div>
-            <div class="mt-3 pt-2 border-top border-secondary z-index-1">
-                <div class="d-flex justify-content-between fs-5">
-                    <span class="opacity-75">Böe</span>
-                    <span class="fw-bold" id="current-gust">@((Model.WindGust ?? 0).ToString("F1"))</span>
-                </div>
-                <div class="d-flex justify-content-between fs-5">
-                    <span class="opacity-75">Max Tag</span>
-                    <span class="fw-bold" id="max-gust">@((Model.MaxDailyGust ?? 0).ToString("F1"))</span>
+        <!-- LEFT COLUMN: HEADER & METRICS GRID -->
+        <div class="metrics-column d-flex flex-column justify-content-between h-100">
+            
+            <!-- Row 1: Weather Header -->
+            <div class="weather-header-row d-flex align-items-center gap-3">
+                <span id="current-weather-icon" class="weather-icon-heavy-shadow">@GetWeatherIcon(Model.WeatherCode, Model.IsDaylight)</span>
+                <div class="d-flex flex-column text-start">
+                    <h2 id="current-temperature" class="main-temp-display">@(Model.CurrentTemperature.HasValue ? $"{Model.CurrentTemperature.Value.ToString("F1")}°C" : "N/A")</h2>
+                    <div class="d-flex align-items-baseline gap-3">
+                        <div id="city-name" class="city-label heavy-shadow opacity-75">@Model.CityName</div>
+                        <div id="current-pressure" class="pressure-label heavy-shadow opacity-50">
+                            @if (Model.Pressure.HasValue) {
+                                @Model.Pressure.Value.ToString("F1") <span class="fs-5">hPa</span>
+                            } else {
+                                @:"N/A"
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Row 2: Metric Details (Dynamic responsive gaps) -->
+            <div class="metrics-details-grid d-flex flex-column justify-content-around flex-grow-1">
+                
+                <!-- Detail Row 1: Sonneneinstrahlung & Windrichtung (Mini Compass) -->
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <!-- Solar -->
+                    <div class="text-start" style="flex: 1;">
+                        <div class="opacity-75 metric-label">Sonneneinstrahlung</div>
+                        <div id="current-solar-inside" class="metric-value text-warning fw-bold">
+                            @if (Model.SolarRadiation.HasValue) {
+                                @Model.SolarRadiation.Value.ToString("F1")<span class="metric-unit"> W/m²</span>
+                            } else {
+                                @:"N/A"
+                            }
+                        </div>
+                        <span id="daylight-status-inside" class="badge bg-warning bg-opacity-25 border border-warning text-warning mt-1 px-2 py-1 daylight-badge">@(Model.IsDaylight ? "AKTIV" : "NACHT")</span>
+                    </div>
+
+                    <!-- Windrichtung Mini Compass -->
+                    <div class="text-start d-flex flex-column align-items-center compass-wrapper" style="width: clamp(100px, 14vh, 150px); margin-right: clamp(0.5rem, 2vw, 3rem);">
+                        <div class="opacity-75 metric-label text-center w-100">Windrichtung</div>
+                        <div class="wind-compass-container position-relative mt-1">
+                            <svg viewBox="0 0 100 100" class="w-100 h-100">
+                                <circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+                                @for (int i = 0; i < 360; i += 30) { <line x1="50" y1="4" x2="50" y2="10" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" transform="rotate(@i 50 50)" /> }
+                                <text x="50" y="16" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">N</text>
+                                <text x="50" y="94" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">S</text>
+                                <text x="14" y="54" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">W</text>
+                                <text x="86" y="54" text-anchor="middle" fill="white" font-size="10" font-weight="bold" class="opacity-75">E</text>
+                                <g id="wind-needle-svg" style="transition: transform 2s ease-in-out; transform-origin: center; transform: rotate(@(Model.WindDirection ?? 0)deg);">
+                                    <line x1="50" y1="50" x2="50" y2="15" stroke="#ffc107" stroke-width="4" stroke-linecap="round" />
+                                    <path d="M 50 8 L 58 24 L 42 24 Z" fill="#ffc107" />
+                                    <circle cx="50" cy="50" r="5" fill="#ffc107" />
+                                    <line x1="50" y1="50" x2="50" y2="70" stroke="rgba(255,193,7,0.6)" stroke-width="3" stroke-dasharray="3,3" />
+                                </g>
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle fw-bold heavy-shadow mini-compass-text" id="wind-dir-text">@(Model.WindDirection.HasValue ? $"{Model.WindDirection.Value.ToString("F0")}°" : "N/A")</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Detail Row 2: Humidity & Feels Like -->
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div class="text-start" style="flex: 1;">
+                        <div class="opacity-75 metric-label">Luftfeuchtigkeit</div>
+                        <div id="current-humidity-inside" class="metric-value fw-bold">@(Model.Humidity.HasValue ? $"{Model.Humidity.Value.ToString("F1")}%" : "N/A")</div>
+                    </div>
+                    <div class="text-start" style="width: clamp(100px, 14vh, 150px); margin-right: clamp(0.5rem, 2vw, 3rem);">
+                        <div class="opacity-75 metric-label text-start">Gefühlte Temp.</div>
+                        <div id="feels-like-temp-inside" class="metric-value fw-bold">@(Model.CurrentTemperature.HasValue ? $"{Model.CurrentTemperature.Value.ToString("F1")}°C" : "N/A")</div>
+                    </div>
+                </div>
+
+                <!-- Detail Row 3: Wind Speed & Gusts -->
+                <div class="text-start w-100">
+                    <div class="opacity-75 metric-label">Windgeschwindigkeit</div>
+                    <div id="current-wind-inside" class="metric-value fw-bold" style="line-height: 1.1; margin-bottom: 2px;">
+                        @if (Model.WindSpeed.HasValue) {
+                            @Model.WindSpeed.Value.ToString("F1")<span class="metric-unit"> km/h</span>
+                        } else {
+                            @:"N/A"
+                        }
+                    </div>
+                    
+                    <div class="d-flex gap-3 mt-1 flex-wrap">
+                        <div class="d-flex align-items-baseline gap-1">
+                            <span class="opacity-50 inline-metric-label">Böe</span>
+                            <span id="current-gust-inside" class="fw-bold inline-metric-value">@(Model.WindGust.HasValue ? $"{Model.WindGust.Value.ToString("F1")} km/h" : "N/A")</span>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-1">
+                            <span class="opacity-50 inline-metric-label">Max Tag</span>
+                            <span id="max-gust-inside" class="fw-bold inline-metric-value">@(Model.MaxDailyGust.HasValue ? $"{Model.MaxDailyGust.Value.ToString("F1")} km/h" : "N/A")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Environmental Card -->
-        <div class="complication-frosted d-flex flex-column justify-content-center p-3 position-relative overflow-hidden">
-            <div class="position-absolute start-0 bottom-0 w-100 h-40 opacity-50">
-                <canvas id="chart-humi"></canvas>
-            </div>
-            <div class="fs-5 opacity-75 mb-1 z-index-1"><i class="bi bi-droplets"></i> Luftfeuchtigkeit</div>
-            <div class="fw-bold z-index-1" id="current-humidity" style="font-size: clamp(3rem, 7vh, 5rem); line-height: 1;">@((Model.Humidity ?? 0).ToString("F0"))%</div>
-            <div class="mt-3 pt-2 border-top border-secondary z-index-1">
-                <div class="fs-5 opacity-75">Gefühlt</div>
-                <div class="fs-3 fw-bold" id="feels-like-temp">@(Model.CurrentTemperature.ToString("F1"))°C</div>
-            </div>
+        <!-- RIGHT COLUMN: HEIGHT-CONSTRAINED HOUSE BLUEPRINT -->
+        <div class="house-column d-flex align-items-center justify-content-center">
+            <svg viewBox="0 0 180 260" class="w-100 h-100" style="overflow: visible;">
+                <defs>
+                    <linearGradient id="basement-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="rgba(0, 198, 255, 0.05)" />
+                        <stop offset="100%" stop-color="rgba(0, 198, 255, 0.15)" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Earth / Ground Shaded Box ( KG is underground ) -->
+                <rect x="0" y="190" width="180" height="60" fill="url(#basement-grad)" rx="4" />
+                <!-- Horizon Ground Line -->
+                <line x1="-10" y1="190" x2="190" y2="190" stroke="rgba(255, 255, 255, 0.4)" stroke-width="2" />
+
+                <!-- KG (Basement) Outline -->
+                <line x1="10" y1="190" x2="10" y2="250" stroke="#00c6ff" stroke-width="2" stroke-dasharray="3,3" />
+                <line x1="170" y1="190" x2="170" y2="250" stroke="#00c6ff" stroke-width="2" stroke-dasharray="3,3" />
+                <line x1="10" y1="250" x2="170" y2="250" stroke="#00c6ff" stroke-width="2" stroke-dasharray="3,3" />
+
+                <!-- EG Outline -->
+                <line x1="10" y1="110" x2="10" y2="190" stroke="#fff" stroke-width="2.5" />
+                <line x1="170" y1="110" x2="170" y2="190" stroke="#fff" stroke-width="2.5" />
+
+                <!-- Roof (OG) -->
+                <polygon points="90,30 185,110 -5,110" fill="none" stroke="#ffc107" stroke-width="2.5" stroke-linejoin="round" />
+
+                <!-- Technical Markers -->
+                <circle cx="90" cy="80" r="2" fill="rgba(255,193,7,0.3)" />
+                <line x1="80" y1="80" x2="100" y2="80" stroke="rgba(255,193,7,0.2)" stroke-width="1" />
+                <line x1="90" y1="70" x2="90" y2="90" stroke="rgba(255,193,7,0.2)" stroke-width="1" />
+
+                <circle cx="90" cy="150" r="2" fill="rgba(255,255,255,0.3)" />
+                <line x1="80" y1="150" x2="100" y2="150" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+                <line x1="90" y1="140" x2="90" y2="160" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+
+                <circle cx="90" cy="220" r="2" fill="rgba(0,198,255,0.3)" />
+                <line x1="80" y1="220" x2="100" y2="220" stroke="rgba(0,198,255,0.2)" stroke-width="1" />
+                <line x1="90" y1="210" x2="90" y2="230" stroke="rgba(0,198,255,0.2)" stroke-width="1" />
+
+                 <!-- LABELS & VALUES -->
+                 <!-- OG -->
+                 <text x="12" y="65" fill="rgba(255,193,7,0.6)" font-size="11" font-weight="600">OG</text>
+                 <text id="house-upstairs-temp" x="90" y="90" text-anchor="middle" fill="#fff" font-size="34" font-weight="bold">@(Model.UpstairsTemperature.HasValue ? $"{Model.UpstairsTemperature.Value.ToString("F1")}°C" : "N/A")</text>
+
+                <!-- EG -->
+                <text x="12" y="135" fill="rgba(255,255,255,0.6)" font-size="11" font-weight="600">EG</text>
+                <text id="house-ground-temp" x="90" y="160" text-anchor="middle" fill="#fff" font-size="34" font-weight="bold">@(Model.GroundFloorTemperature.HasValue ? $"{Model.GroundFloorTemperature.Value.ToString("F1")}°C" : "N/A")</text>
+
+                <!-- KG -->
+                <text x="12" y="210" fill="rgba(255,255,255,0.6)" font-size="11" font-weight="600">KG</text>
+                <text id="house-basement-temp" x="90" y="230" text-anchor="middle" fill="#fff" font-size="34" font-weight="bold">@(Model.BasementTemperature.HasValue ? $"{Model.BasementTemperature.Value.ToString("F1")}°C" : "N/A")</text>
+
+                <!-- Grass reeds under ground -->
+                <path d="M 160,200 Q 163,185 160,175 M 162,200 Q 168,187 166,179" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" stroke-linecap="round" />
+                <path d="M 20,200 Q 18,187 21,180" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
         </div>
 
-        <!-- Solar Card -->
-        <div class="complication-frosted d-flex flex-column justify-content-center p-3 position-relative overflow-hidden">
-            <div class="position-absolute start-0 bottom-0 w-100 h-40 opacity-50">
-                <canvas id="chart-solar"></canvas>
-            </div>
-            <div class="fs-5 opacity-75 mb-1 z-index-1"><i class="bi bi-sun"></i> Sonneneinstrahlung</div>
-            <div class="fw-bold z-index-1" id="current-solar" style="font-size: clamp(2rem, 5vh, 4rem); line-height: 1;">@((Model.SolarRadiation ?? 0).ToString("F0")) <span class="fs-5 opacity-50">W/m²</span></div>
-            <div class="mt-3 pt-2 border-top border-secondary z-index-1">
-                <div class="fs-5 opacity-75">Tageslicht</div>
-                <div class="fs-3 fw-bold text-warning" id="daylight-status">@(Model.IsDaylight ? "Aktiv" : "Nacht")</div>
-            </div>
-        </div>
     </div>
 </div>
 
 <style>
-    .z-index-1 { z-index: 1; position: relative; }
-    .h-40 { height: 40%; }
+    /* Absolute Grid & Layout Constraints */
+    .weather-station-grid {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr;
+        gap: clamp(1rem, 3.5vw, 4rem);
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* Left Column Flexbox Limits */
+    .metrics-column {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* Top Row Sizing (Capped with vertical clamp limits) */
+    .weather-header-row {
+        height: auto;
+        max-height: 22vh;
+        flex-shrink: 0;
+    }
+
+    /* Left Side Details Grid */
+    .metrics-details-grid {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        flex-grow: 1;
+        min-height: 0;
+        margin-top: clamp(0.4rem, 1.5vh, 2rem);
+    }
+
+    /* Right Column (House Layout Constraints) */
+    .house-column {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: clamp(0.5rem, 1.5vh, 2rem);
+        padding-bottom: clamp(0.5rem, 1.5vh, 2rem);
+        min-height: 0;
+        overflow: hidden;
+    }
+    .house-column svg {
+        max-height: 95%;
+        max-width: 100%;
+        height: auto;
+        width: auto;
+    }
+
+    /* Unified Viewport Height Dependent Typography (Preventing Cut-off) */
+    .weather-icon-heavy-shadow {
+        font-size: clamp(4.5rem, 11vh, 8.5rem);
+        filter: drop-shadow(0 0 15px rgba(0,0,0,0.5));
+    }
+    .main-temp-display {
+        font-size: clamp(4.5rem, 11vh, 8.5rem);
+        font-weight: 800;
+        margin-bottom: -0.5vh;
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .city-label {
+        font-size: clamp(1.2rem, 3.5vh, 2.3rem);
+    }
+    .pressure-label {
+        font-size: clamp(1rem, 2.8vh, 1.8rem);
+    }
+
+    /* Double-Axis Responsive Label / Metric Texts */
+    .metric-label {
+        font-size: clamp(1rem, 2.1vh, 1.5rem);
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 2px;
+        white-space: nowrap;
+    }
+    .metric-value {
+        font-size: clamp(1.8rem, 4.2vh, 3.1rem);
+        font-weight: bold;
+        line-height: 1.1;
+    }
+    .metric-unit {
+        font-size: clamp(1.1rem, 2.2vh, 1.6rem);
+        color: rgba(255, 255, 255, 0.75);
+        font-weight: normal;
+        margin-left: 2px;
+    }
+    .inline-metric-label {
+        font-size: clamp(0.9rem, 1.8vh, 1.25rem);
+    }
+    .inline-metric-value {
+        font-size: clamp(1rem, 2vh, 1.35rem);
+    }
+    .daylight-badge {
+        font-size: clamp(0.6rem, 1.1vh, 0.75rem) !important;
+        padding: 3px 6px;
+    }
+
+    /* Mini Wind Compass Sizing (Linked entirely to Viewport Height) */
+    .wind-compass-container {
+        width: clamp(75px, 10.5vh, 115px);
+        height: clamp(75px, 10.5vh, 115px);
+    }
+    .mini-compass-text {
+        font-size: clamp(0.75rem, 1.1vh, 0.95rem);
+        color: #ffc107;
+        margin-top: 1vh;
+    }
+
+    /* Height Breakpoint: Squeezed Landscape / Short Screens */
+    @@media (orientation: landscape) and (max-height: 650px) {
+        .weather-station-grid {
+            gap: 1.5rem !important;
+        }
+        .metrics-details-grid {
+            margin-top: 0.2rem !important;
+        }
+        .house-column {
+            padding-top: 0.2rem !important;
+            padding-bottom: 0.2rem !important;
+        }
+    }
+
+    /* Responsive Breakdown: Portrait Support (breaks grid dynamically) */
+    @@media (max-width: 900px), (orientation: portrait) {
+        .weather-station-grid {
+            grid-template-columns: 1fr !important;
+            grid-template-rows: auto auto !important;
+            gap: clamp(1.5rem, 3vh, 3rem) !important;
+            overflow: visible !important;
+        }
+        .metrics-column {
+            height: auto !important;
+            overflow: visible !important;
+        }
+        .metrics-details-grid {
+            gap: 1.8rem !important;
+            margin-top: 1.5rem !important;
+        }
+        .house-column {
+            height: clamp(240px, 40vh, 350px) !important;
+            padding: 0 !important;
+            overflow: visible !important;
+        }
+        .house-column svg {
+            max-height: 100% !important;
+        }
+    }
 </style>

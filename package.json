@@ -1,0 +1,11 @@
+{
+  "name": "wetter-screenshot-tool",
+  "version": "1.0.0",
+  "description": "Headless screenshot capture tool for visual dashboard validation",
+  "scripts": {
+    "capture": "node capture-screenshots.js"
+  },
+  "dependencies": {
+    "puppeteer": "^22.11.2"
+  }
+}

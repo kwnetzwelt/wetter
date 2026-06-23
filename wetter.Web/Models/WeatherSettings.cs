@@ -24,4 +24,7 @@ public class WeatherSettings
     public string? HomeAssistantMaxDailyGustEntityId { get; set; }
     public string? HomeAssistantSolarRadiationEntityId { get; set; }
     public string? HomeAssistantRainEntityId { get; set; }
+    public string? HomeAssistantBasementTempEntityId { get; set; }
+    public string? HomeAssistantGroundFloorTempEntityId { get; set; }
+    public string? HomeAssistantUpstairsTempEntityId { get; set; }
 }

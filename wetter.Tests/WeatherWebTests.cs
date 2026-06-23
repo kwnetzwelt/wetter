@@ -34,7 +34,7 @@ public class WeatherWebTests
         Assert.That(response.Content.Headers.ContentType?.ToString(), Does.Contain("text/html"));
         
         var content = await response.Content.ReadAsStringAsync();
-        Assert.That(content, Does.Contain("digital-clock"), "Digital clock should be present");
+        Assert.That(content, Does.Contain("date-display"), "Date display should be present");
         Assert.That(content, Does.Contain("analog-clock"), "Analog clock should be present");
         Assert.That(content, Does.Contain("weather-segment"), "Weather segment should be present");
         Assert.That(content, Does.Contain("sun-tracker-segment"), "Sun tracker segment should be present");
