@@ -22,8 +22,14 @@
     .fc-temp { font-size: clamp(1.2rem, 3vh, 2rem); font-weight: bold; }
 
     @@media (orientation: portrait), (max-aspect-ratio: 1/1) {
-        .v2-container { flex-direction: column; }
-        .v2-left { border-right: none; border-bottom: 2px solid #333; }
+        body { overflow-y: auto; overflow-x: hidden; }
+        .v2-container { flex-direction: column; height: auto; min-height: 100vh; overflow-y: visible; overflow-x: hidden; }
+        .v2-left { border-right: none; border-bottom: 2px solid #333; overflow: visible; }
+        .v2-right { overflow: visible; display: flex; flex-direction: column; }
+        .temp-block { padding: 4vh 0; }
+        #v2-hourly-cards { padding: 2vh 0; min-height: 15vh; }
+        #v2-daily-cards { padding: 2vh 0; min-height: 15vh; }
+        #v2-timeline-container { height: 40vh; min-height: 300px; flex: none; }
         .temp-value { font-size: 8vh; }
         .temp-label { font-size: 2vh; }
     }
@@ -181,34 +187,34 @@
 
             if (showExtremes) {
                 ctx.fillStyle = color;
-                ctx.font = 'bold 16px sans-serif';
+                ctx.font = 'bold 20px sans-serif';
                 ctx.textAlign = 'center';
                 
                 // Draw Min
                 const minMp = mappedPts.find(mp => mp.v === pMin.v);
                 if (minMp) {
-                    ctx.fillText(`${Math.round(pMin.v)}${suffix}`, minMp.x, minMp.y + 20);
+                    ctx.fillText(`${Math.round(pMin.v)}${suffix}`, minMp.x, minMp.y + 24);
                 }
                 
                 // Draw Max
                 const maxMp = mappedPts.find(mp => mp.v === pMax.v);
                 if (maxMp && pMax.v !== pMin.v) { // Don't draw twice if min==max
-                    ctx.fillText(`${Math.round(pMax.v)}${suffix}`, maxMp.x, maxMp.y - 10);
+                    ctx.fillText(`${Math.round(pMax.v)}${suffix}`, maxMp.x, maxMp.y - 12);
                 }
             }
         }
 
         // Left Side (-24h)
         drawLine(d.tempHistory, p => p.value, p => p.time, '#ffc107', -10, 40, 0.05, 0.45, true, '°'); // Yellow
-        drawLine(d.precipitationHistory, p => p.value, p => p.time, '#0d6efd', 0, 20, 0.5, 0.7, true, 'mm'); // Blue
-        drawLine(d.windHistory, p => p.value, p => p.time, '#6c757d', 0, 100, 0.75, 0.95, true, 'km/h'); // Grey
+        drawLine(d.precipitationHistory, p => p.value, p => p.time, '#ffc107', 0, 20, 0.5, 0.7, true, 'mm'); // Yellow
+        drawLine(d.windHistory, p => p.value, p => p.time, '#ffffff', 0, 100, 0.75, 0.95, true, 'km/h'); // White
 
         // Right Side (+24h)
         // Filter hourly to future
         const hourlyFcast = (d.hourly || []).filter(h => new Date(h.time).getTime() > now.getTime());
         drawLine(hourlyFcast, p => p.temp, p => p.time, '#fff3cd', -10, 40, 0.05, 0.45, true, '°'); // Light Yellow
-        drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#8bb9fe', 0, 20, 0.5, 0.7, true, 'mm'); // Light Blue
-        drawLine(hourlyFcast, p => p.windSpeed, p => p.time, '#adb5bd', 0, 100, 0.75, 0.95, true, 'km/h'); // Light Grey
+        drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#fff3cd', 0, 20, 0.5, 0.7, true, 'mm'); // Light Yellow
+        drawLine(hourlyFcast, p => p.windSpeed, p => p.time, 'rgba(255, 255, 255, 0.7)', 0, 100, 0.75, 0.95, true, 'km/h'); // Light White
 
         // Draw Sun at Center
         const sunX = w / 2;
