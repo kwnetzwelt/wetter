@@ -19,6 +19,7 @@ public class WeatherData
     public List<HistoryPoint> HumidityHistory { get; set; } = new();
     public List<HistoryPoint> WindHistory { get; set; } = new();
     public List<HistoryPoint> SolarHistory { get; set; } = new();
+    public List<HistoryPoint> PrecipitationHistory { get; set; } = new();
 
     public int WeatherCode { get; set; }
     public List<DailyForecast> Forecast { get; set; } = new();
@@ -42,6 +43,8 @@ public class HourlyForecast
     public DateTime Time { get; set; }
     public double Temp { get; set; }
     public int WeatherCode { get; set; }
+    public double Precipitation { get; set; }
+    public double WindSpeed { get; set; }
 }
 
 public class DailyForecast
