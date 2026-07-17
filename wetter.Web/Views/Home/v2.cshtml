@@ -1,0 +1,48 @@
+@using System.Globalization
+@model wetter.Web.Models.WeatherData
+@{
+    Layout = "_Layout";
+}
+
+<style>
+    body { background-color: #000; color: #fff; overflow: hidden; }
+    .v2-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+    .v2-left, .v2-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .v2-left { border-right: 2px solid #333; }
+    
+    .temp-block { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; border-bottom: 1px solid #222; }
+    .temp-block:last-child { border-bottom: none; }
+    .temp-value { font-size: clamp(3rem, 12vh, 10rem); font-weight: bold; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+    .temp-label { font-size: clamp(1rem, 3vh, 2rem); opacity: 0.6; text-transform: uppercase; letter-spacing: 2px; }
+
+    @@media (orientation: portrait), (max-aspect-ratio: 1/1) {
+        .v2-container { flex-direction: column; }
+        .v2-left { border-right: none; border-bottom: 2px solid #333; }
+        .temp-value { font-size: 8vh; }
+        .temp-label { font-size: 2vh; }
+    }
+</style>
+
+<div class="v2-container">
+    <div class="v2-left">
+        <div class="temp-block">
+            <div class="temp-value" id="v2-temp-out">@(Model.CurrentTemperature?.ToString("F1") ?? "N/A")°</div>
+            <div class="temp-label">Outdoors</div>
+        </div>
+        <div class="temp-block">
+            <div class="temp-value" id="v2-temp-up">@(Model.UpstairsTemperature?.ToString("F1") ?? "N/A")°</div>
+            <div class="temp-label">Upstairs</div>
+        </div>
+        <div class="temp-block">
+            <div class="temp-value" id="v2-temp-ground">@(Model.GroundFloorTemperature?.ToString("F1") ?? "N/A")°</div>
+            <div class="temp-label">Ground Level</div>
+        </div>
+        <div class="temp-block">
+            <div class="temp-value" id="v2-temp-base">@(Model.BasementTemperature?.ToString("F1") ?? "N/A")°</div>
+            <div class="temp-label">Basement</div>
+        </div>
+    </div>
+    <div class="v2-right" id="v2-right-col">
+        <!-- Right column placeholder -->
+    </div>
+</div>
