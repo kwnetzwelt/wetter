@@ -89,6 +89,12 @@
 (function() {
     window.v2CurrentAppVersion = '@ViewData["Version"]';
     
+    async function requestWakeLock() { 
+        if ('wakeLock' in navigator) { 
+            try { window.v2WakeLock = await navigator.wakeLock.request('screen'); } catch (err) { } 
+        } 
+    }
+    
     function getWeatherIcon(code, isDay) {
         if (isDay === undefined) isDay = true;
         const icons = { 
@@ -135,6 +141,9 @@
     updateView();
     let updateInterval = setInterval(updateView, 30000); // 30s update
     
+    requestWakeLock();
+    let wakeLockInterval = setInterval(requestWakeLock, 30000); // refresh wake lock
+    
     // Auto-Reload logic on version change
     function checkServerStatus() {
         $.ajax({ url: '/api/health', timeout: 5000, cache: false }).done(function(data) {
@@ -150,6 +159,7 @@
         $.ajax({ url: '/Home/V2', cache: false, dataType: 'html', success: function(data) {
             clearInterval(updateInterval);
             clearInterval(healthInterval);
+            clearInterval(wakeLockInterval);
             if (window.v2AnimationId) cancelAnimationFrame(window.v2AnimationId);
             const parser = new DOMParser(); 
             const newDoc = parser.parseFromString(data, 'text/html');
