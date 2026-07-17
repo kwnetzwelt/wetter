@@ -4,8 +4,30 @@ using wetter.Web.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
+using System.Net;
+using System.Text.Json;
 
 namespace wetter.Tests;
+
+public class MockHttpMessageHandler : HttpMessageHandler
+{
+    public string WeatherJson { get; set; } = "{}";
+    public string GeoJson { get; set; } = "{}";
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK);
+        if (request.RequestUri!.ToString().Contains("api.open-meteo.com"))
+        {
+            response.Content = new StringContent(WeatherJson);
+        }
+        else if (request.RequestUri!.ToString().Contains("api.bigdatacloud.net"))
+        {
+            response.Content = new StringContent(GeoJson);
+        }
+        return Task.FromResult(response);
+    }
+}
 
 public class WeatherMappingTests
 {
@@ -135,5 +157,79 @@ public class WeatherMappingTests
         };
         method.Invoke(_service, new object[] { wdF, null! });
         Assert.That(wdF.WeatherCode, Is.EqualTo(1), "Morning with decent radiation should upgrade Cloudy to Partly Cloudy");
+    }
+
+    [Test]
+    public void ParseHaForecastArray_ParsesPrecipitationAndWindSpeed()
+    {
+        var method = typeof(WeatherService).GetMethod("ParseHaForecastArray", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.That(method, Is.Not.Null, "ParseHaForecastArray method should exist");
+
+        var weatherData = new WeatherData();
+        var futureDate = DateTime.UtcNow.AddHours(1).ToString("yyyy-MM-ddTHH:00:00Z");
+        var json = $$"""
+        [
+            {
+                "datetime": "{{futureDate}}",
+                "condition": "rainy",
+                "temperature": 15.0,
+                "precipitation": 2.5,
+                "wind_speed": 12.3
+            }
+        ]
+        """;
+        var doc = System.Text.Json.JsonDocument.Parse(json);
+        
+        method.Invoke(_service, new object[] { doc.RootElement, weatherData, "hourly" });
+
+        Assert.That(weatherData.Hourly.Count, Is.EqualTo(1));
+        Assert.That(weatherData.Hourly[0].Precipitation, Is.EqualTo(2.5));
+        Assert.That(weatherData.Hourly[0].WindSpeed, Is.EqualTo(12.3));
+    }
+
+    [Test]
+    public async Task GetOpenMeteoWeatherAsync_ParsesPrecipitationAndWindSpeed()
+    {
+        var mockHandler = new MockHttpMessageHandler();
+        mockHandler.WeatherJson = """
+        {
+            "utc_offset_seconds": 0,
+            "current": {
+                "temperature_2m": 10.0,
+                "weather_code": 0
+            },
+            "hourly": {
+                "time": [ "2024-01-01T00:00", "2024-01-01T01:00", "2024-01-01T02:00" ],
+                "temperature_2m": [ 10.0, 11.0, 12.0 ],
+                "weather_code": [ 0, 1, 2 ],
+                "precipitation": [ 0.0, 2.5, 5.0 ],
+                "wind_speed_10m": [ 10.0, 15.0, 20.0 ]
+            },
+            "daily": {
+                "time": [ "2024-01-01" ],
+                "weather_code": [ 0 ],
+                "temperature_2m_max": [ 12.0 ],
+                "temperature_2m_min": [ 8.0 ],
+                "sunrise": [ "2024-01-01T06:00" ],
+                "sunset": [ "2024-01-01T18:00" ]
+            }
+        }
+        """;
+        mockHandler.GeoJson = """{"locality": "TestCity"}""";
+
+        var settings = new WeatherSettings { Latitude = 50.0, Longitude = 10.0, UseHomeAssistant = false };
+        var options = Options.Create(settings);
+        var httpClient = new HttpClient(mockHandler);
+        var service = new WeatherService(httpClient, options, null!);
+
+        var method = typeof(WeatherService).GetMethod("GetOpenMeteoWeatherAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.That(method, Is.Not.Null, "GetOpenMeteoWeatherAsync method should exist");
+
+        var task = (Task<WeatherData>)method.Invoke(service, null)!;
+        var weatherData = await task;
+
+        Assert.That(weatherData.Hourly.Count, Is.GreaterThan(0));
+        Assert.That(weatherData.Hourly[0].Precipitation, Is.EqualTo(2.5));
+        Assert.That(weatherData.Hourly[0].WindSpeed, Is.EqualTo(15.0));
     }
 }

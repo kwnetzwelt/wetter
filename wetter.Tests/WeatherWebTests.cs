@@ -112,6 +112,9 @@ public class WeatherWebTests
                 var timeStr = timeProp.GetString();
                 Assert.That(timeStr, Does.EndWith("Z"), "Hourly forecast times should be serialized as UTC ISO strings ending with Z");
             }
+            
+            Assert.That(firstHour.TryGetProperty("precipitation", out _), Is.True, "Hourly forecast should contain precipitation");
+            Assert.That(firstHour.TryGetProperty("windSpeed", out _), Is.True, "Hourly forecast should contain windSpeed");
         }
     }
 

@@ -102,6 +102,7 @@ public class WeatherService : IWeatherService
             if (!string.IsNullOrEmpty(_settings.HomeAssistantHumidityEntityId)) historyTasks.Add(FetchHistory(baseUrl, _settings.HomeAssistantHumidityEntityId, "humi", startTimeStr));
             if (!string.IsNullOrEmpty(_settings.HomeAssistantWindSpeedEntityId)) historyTasks.Add(FetchHistory(baseUrl, _settings.HomeAssistantWindSpeedEntityId, "wspe", startTimeStr));
             if (!string.IsNullOrEmpty(_settings.HomeAssistantSolarRadiationEntityId)) historyTasks.Add(FetchHistory(baseUrl, _settings.HomeAssistantSolarRadiationEntityId, "srad", startTimeStr));
+            if (!string.IsNullOrEmpty(_settings.HomeAssistantRainEntityId)) historyTasks.Add(FetchHistory(baseUrl, _settings.HomeAssistantRainEntityId, "rain", startTimeStr));
 
             var historyResults = await Task.WhenAll(historyTasks);
             foreach (var hr in historyResults)
@@ -112,6 +113,7 @@ public class WeatherService : IWeatherService
                     case "humi": weatherData.HumidityHistory = hr.points; break;
                     case "wspe": weatherData.WindHistory = hr.points; break;
                     case "srad": weatherData.SolarHistory = hr.points; break;
+                    case "rain": weatherData.PrecipitationHistory = hr.points; break;
                 }
             }
 
@@ -258,8 +260,17 @@ public class WeatherService : IWeatherService
                 // For hourly, just take the next 24 hours
                 if (time > DateTime.UtcNow.AddMinutes(-30) && weatherData.Hourly.Count < 24)
                 {
+                    var precip = f.TryGetProperty("precipitation", out var pProp) ? pProp.GetDouble() : 0;
+                    var wind = f.TryGetProperty("wind_speed", out var wProp) ? wProp.GetDouble() : 0;
+
                     if (!weatherData.Hourly.Any(h => h.Time == time))
-                        weatherData.Hourly.Add(new HourlyForecast { Time = time, Temp = temp, WeatherCode = MapHaConditionToWmo(condition) });
+                        weatherData.Hourly.Add(new HourlyForecast { 
+                            Time = time, 
+                            Temp = temp, 
+                            WeatherCode = MapHaConditionToWmo(condition),
+                            Precipitation = precip,
+                            WindSpeed = wind
+                        });
                 }
             }
         }
@@ -404,7 +415,7 @@ public class WeatherService : IWeatherService
 
     private async Task<WeatherData> GetOpenMeteoWeatherAsync()
     {
-        var weatherUrl = $"https://api.open-meteo.com/v1/forecast?latitude={_settings.Latitude}&longitude={_settings.Longitude}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_hours=13";
+        var weatherUrl = $"https://api.open-meteo.com/v1/forecast?latitude={_settings.Latitude}&longitude={_settings.Longitude}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_hours=48";
         var geoUrl = $"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={_settings.Latitude}&longitude={_settings.Longitude}&localityLanguage=en";
         string cityName = _settings.CityName; double currentTemp = 0; int weatherCode = 3; // Default to cloudy if fetch fails
         var sunrise = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddHours(6), DateTimeKind.Utc);
@@ -446,12 +457,20 @@ public class WeatherService : IWeatherService
                 var hTimes = hourlyData.GetProperty("time");
                 var hTemps = hourlyData.GetProperty("temperature_2m");
                 var hCodes = hourlyData.GetProperty("weather_code");
-                for (int i = 1; i < hTimes.GetArrayLength() && i <= 12; i++)
+                var hPrecip = hourlyData.GetProperty("precipitation");
+                var hWind = hourlyData.GetProperty("wind_speed_10m");
+                for (int i = 1; i < hTimes.GetArrayLength() && i <= 24; i++) // increase to 24 for canvas
                 {
                     var rawHourTime = DateTime.Parse(hTimes[i].GetString()!);
                     var adjustedHourTime = DateTime.SpecifyKind(rawHourTime, DateTimeKind.Unspecified).AddSeconds(-utcOffset);
                     adjustedHourTime = DateTime.SpecifyKind(adjustedHourTime, DateTimeKind.Utc);
-                    hourly.Add(new HourlyForecast { Time = adjustedHourTime, Temp = hTemps[i].GetDouble(), WeatherCode = hCodes[i].GetInt32() });
+                    hourly.Add(new HourlyForecast { 
+                        Time = adjustedHourTime, 
+                        Temp = hTemps[i].GetDouble(), 
+                        WeatherCode = hCodes[i].GetInt32(),
+                        Precipitation = hPrecip[i].GetDouble(),
+                        WindSpeed = hWind[i].GetDouble()
+                    });
                 }
             }
             else 
