@@ -7,7 +7,7 @@
 <style>
     body { background-color: #000 !important; color: #fff; overflow: hidden; }
     #sky-background, #particles-canvas { display: none !important; }
-    .v2-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+    .v2-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
     .v2-left, .v2-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .v2-left { border-right: 2px solid #333; }
     
@@ -37,6 +37,13 @@
 </style>
 
 <div class="v2-container">
+    <!-- Action Buttons -->
+    <div style="position: absolute; top: 15px; left: 15px; z-index: 1000;">
+        <button id="v2-reload-btn" class="btn btn-outline-secondary btn-lg opacity-25">
+            <i class="bi bi-arrow-clockwise" style="font-size: 24px;"></i>
+        </button>
+    </div>
+
     <div class="v2-left">
         <div class="temp-block">
             <div class="temp-value" id="v2-temp-out">@(Model.CurrentTemperature?.ToString("F1") ?? "N/A")°</div>
@@ -109,7 +116,20 @@
     }
 
     updateView();
-    setInterval(updateView, 30000); // 30s update
+    let updateInterval = setInterval(updateView, 30000); // 30s update
+    
+    // Reload logic
+    function performSoftReload() {
+        $.ajax({ url: '/Home/V2', cache: false, dataType: 'html', success: function(data) {
+            clearInterval(updateInterval);
+            const parser = new DOMParser(); 
+            const newDoc = parser.parseFromString(data, 'text/html');
+            $('body').html(newDoc.querySelector('body').innerHTML);
+            // The newly injected script block will self-execute and restart everything
+        }});
+    }
+
+    document.getElementById('v2-reload-btn').addEventListener('click', performSoftReload);
 
     function drawCanvas() {
         const canvas = document.getElementById('v2-sun-curve');
