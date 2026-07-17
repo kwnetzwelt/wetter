@@ -216,9 +216,107 @@
         drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#fff3cd', 0, 20, 0.5, 0.7, true, 'mm'); // Light Yellow
         drawLine(hourlyFcast, p => p.windSpeed, p => p.time, 'rgba(255, 255, 255, 0.7)', 0, 100, 0.75, 0.95, true, 'km/h'); // Light White
 
+        // Draw Sun Curve
+        const srDate = d.sunrise ? new Date(d.sunrise) : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+        const ssDate = d.sunset ? new Date(d.sunset) : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0);
+        
+        const srTimeOfDay = srDate.getHours() * 3600000 + srDate.getMinutes() * 60000 + srDate.getSeconds() * 1000;
+        let ssTimeOfDay = ssDate.getHours() * 3600000 + ssDate.getMinutes() * 60000 + ssDate.getSeconds() * 1000;
+        if (ssTimeOfDay <= srTimeOfDay) ssTimeOfDay += msPer24h; // Handle midnight wrap if any
+        
+        const dayLength = ssTimeOfDay - srTimeOfDay;
+        const nightLength = msPer24h - dayLength;
+        const curveAmp = h * 0.35;
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 2;
+
+        for (let x = 0; x <= w; x += 2) {
+            const t = startT + (x / w) * totalMs;
+            const dObj = new Date(t);
+            let timeOfDay = dObj.getHours() * 3600000 + dObj.getMinutes() * 60000 + dObj.getSeconds() * 1000;
+            if (timeOfDay < srTimeOfDay && ssTimeOfDay > msPer24h) timeOfDay += msPer24h; // match wrap
+
+            let y = horizonY;
+            if (timeOfDay >= srTimeOfDay && timeOfDay <= ssTimeOfDay) {
+                const frac = (timeOfDay - srTimeOfDay) / dayLength;
+                y = horizonY - Math.sin(frac * Math.PI) * curveAmp;
+            } else {
+                let frac;
+                if (timeOfDay < srTimeOfDay) {
+                    frac = (timeOfDay + (msPer24h - (ssTimeOfDay % msPer24h))) / nightLength;
+                } else {
+                    frac = (timeOfDay - ssTimeOfDay) / nightLength;
+                }
+                y = horizonY + Math.sin(frac * Math.PI) * curveAmp;
+            }
+
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw Sunrise / Sunset labels
+        const events = [];
+        for (let i = -1; i <= 1; i++) {
+            const dayBase = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+            if (d.sunrise) {
+                const sr = new Date(d.sunrise);
+                sr.setFullYear(dayBase.getFullYear(), dayBase.getMonth(), dayBase.getDate());
+                events.push({ type: 'sunrise', t: sr.getTime() });
+            }
+            if (d.sunset) {
+                const ss = new Date(d.sunset);
+                ss.setFullYear(dayBase.getFullYear(), dayBase.getMonth(), dayBase.getDate());
+                events.push({ type: 'sunset', t: ss.getTime() });
+            }
+        }
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        
+        events.forEach(ev => {
+            if (ev.t >= startT && ev.t <= endT) {
+                const x = getX(ev.t);
+                const dObj = new Date(ev.t);
+                const timeStr = dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.moveTo(x, horizonY - 15);
+                ctx.lineTo(x, horizonY + 15);
+                ctx.stroke();
+
+                if (ev.type === 'sunrise') {
+                    ctx.fillText(`🌅 ${timeStr}`, x, horizonY - 20);
+                } else {
+                    ctx.fillText(`🌇 ${timeStr}`, x, horizonY + 30);
+                }
+            }
+        });
+
         // Draw Sun at Center
         const sunX = w / 2;
-        const sunY = horizonY;
+        
+        let nowTimeOfDay = now.getHours() * 3600000 + now.getMinutes() * 60000 + now.getSeconds() * 1000;
+        if (nowTimeOfDay < srTimeOfDay && ssTimeOfDay > msPer24h) nowTimeOfDay += msPer24h;
+        let sunY = horizonY;
+        if (nowTimeOfDay >= srTimeOfDay && nowTimeOfDay <= ssTimeOfDay) {
+            const frac = (nowTimeOfDay - srTimeOfDay) / dayLength;
+            sunY = horizonY - Math.sin(frac * Math.PI) * curveAmp;
+        } else {
+            let frac;
+            if (nowTimeOfDay < srTimeOfDay) {
+                frac = (nowTimeOfDay + (msPer24h - (ssTimeOfDay % msPer24h))) / nightLength;
+            } else {
+                frac = (nowTimeOfDay - ssTimeOfDay) / nightLength;
+            }
+            sunY = horizonY + Math.sin(frac * Math.PI) * curveAmp;
+        }
         
         // Pulse effect
         const pulse = Math.sin(Date.now() / 500) * 5;
