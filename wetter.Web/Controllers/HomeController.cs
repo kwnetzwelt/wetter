@@ -45,6 +45,22 @@ public class HomeController : Controller
         }
     }
 
+    [HttpGet("Home/v2")]
+    public async Task<IActionResult> V2()
+    {
+        try
+        {
+            var weather = await _weatherService.GetWeatherAsync();
+            ViewData["Version"] = Environment.GetEnvironmentVariable("WETTER_VERSION") ?? "unknown";
+            return View(weather);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching weather data for V2");
+            return View(new WeatherData());
+        }
+    }
+
     public IActionResult Privacy()
     {
         return View();
