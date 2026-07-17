@@ -163,13 +163,15 @@
         const w = canvas.width, h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         
+        const hPad = 50;
+
         // Draw horizon
         const horizonY = h / 2;
         ctx.beginPath();
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
-        ctx.moveTo(0, horizonY);
-        ctx.lineTo(w, horizonY);
+        ctx.moveTo(hPad, horizonY);
+        ctx.lineTo(w - hPad, horizonY);
         ctx.stroke();
 
         const d = window.v2Data;
@@ -185,7 +187,7 @@
         const totalMs = endT - startT;
 
         function getX(t) {
-            return ((t - startT) / totalMs) * w;
+            return hPad + ((t - startT) / totalMs) * (w - hPad * 2);
         }
 
         function drawLine(dataArray, valSelector, timeSelector, color, minY, maxY, topPct, bottomPct, showExtremes = false, suffix = '') {
@@ -271,8 +273,8 @@
         ctx.setLineDash([4, 6]);
         ctx.lineWidth = 2;
 
-        for (let x = 0; x <= w; x += 2) {
-            const t = startT + (x / w) * totalMs;
+        for (let x = hPad; x <= w - hPad; x += 2) {
+            const t = startT + ((x - hPad) / (w - hPad * 2)) * totalMs;
             const dObj = new Date(t);
             let timeOfDay = dObj.getHours() * 3600000 + dObj.getMinutes() * 60000 + dObj.getSeconds() * 1000;
             if (timeOfDay < srTimeOfDay && ssTimeOfDay > msPer24h) timeOfDay += msPer24h; // match wrap
@@ -291,7 +293,7 @@
                 y = horizonY + Math.sin(frac * Math.PI) * curveAmp;
             }
 
-            if (x === 0) ctx.moveTo(x, y);
+            if (x === hPad) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.stroke();
