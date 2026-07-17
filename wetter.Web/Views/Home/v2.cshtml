@@ -144,7 +144,7 @@
             return ((t - startT) / totalMs) * w;
         }
 
-        function drawLine(dataArray, valSelector, timeSelector, color, minY = 0, maxY = 50) {
+        function drawLine(dataArray, valSelector, timeSelector, color, minY, maxY, topPct, bottomPct, showExtremes = false, suffix = '') {
             if (!dataArray || !dataArray.length) return;
             const pts = dataArray.map(item => ({
                 t: new Date(timeSelector(item)).getTime(),
@@ -157,31 +157,58 @@
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
             
+            let pMin = pts[0], pMax = pts[0];
+            const mappedPts = [];
+
             pts.forEach((p, i) => {
                 const x = getX(p.t);
+                
+                if (p.v < pMin.v) pMin = p;
+                if (p.v > pMax.v) pMax = p;
+                
                 // clamp value
                 let val = p.v;
                 if(val < minY) val = minY;
                 if(val > maxY) val = maxY;
-                // Map val to Y: bottom 10% to top 10%
-                const y = h * 0.9 - ((val - minY) / (maxY - minY)) * (h * 0.8);
+                
+                const y = h * bottomPct - ((val - minY) / (maxY - minY)) * (h * (bottomPct - topPct));
+                mappedPts.push({x, y, v: p.v});
+                
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
             ctx.stroke();
+
+            if (showExtremes) {
+                ctx.fillStyle = color;
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                
+                // Draw Min
+                const minMp = mappedPts.find(mp => mp.v === pMin.v);
+                if (minMp) {
+                    ctx.fillText(`${Math.round(pMin.v)}${suffix}`, minMp.x, minMp.y + 20);
+                }
+                
+                // Draw Max
+                const maxMp = mappedPts.find(mp => mp.v === pMax.v);
+                if (maxMp && pMax.v !== pMin.v) { // Don't draw twice if min==max
+                    ctx.fillText(`${Math.round(pMax.v)}${suffix}`, maxMp.x, maxMp.y - 10);
+                }
+            }
         }
 
         // Left Side (-24h)
-        drawLine(d.tempHistory, p => p.value, p => p.time, '#ffc107', -10, 40); // Yellow
-        drawLine(d.precipitationHistory, p => p.value, p => p.time, '#0d6efd', 0, 20); // Blue
-        drawLine(d.windHistory, p => p.value, p => p.time, '#6c757d', 0, 100); // Grey
+        drawLine(d.tempHistory, p => p.value, p => p.time, '#ffc107', -10, 40, 0.05, 0.45, true, '°'); // Yellow
+        drawLine(d.precipitationHistory, p => p.value, p => p.time, '#0d6efd', 0, 20, 0.5, 0.7, true, 'mm'); // Blue
+        drawLine(d.windHistory, p => p.value, p => p.time, '#6c757d', 0, 100, 0.75, 0.95, true, 'km/h'); // Grey
 
         // Right Side (+24h)
         // Filter hourly to future
         const hourlyFcast = (d.hourly || []).filter(h => new Date(h.time).getTime() > now.getTime());
-        drawLine(hourlyFcast, p => p.temp, p => p.time, '#fff3cd', -10, 40); // Light Yellow
-        drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#8bb9fe', 0, 20); // Light Blue
-        drawLine(hourlyFcast, p => p.windSpeed, p => p.time, '#adb5bd', 0, 100); // Light Grey
+        drawLine(hourlyFcast, p => p.temp, p => p.time, '#fff3cd', -10, 40, 0.05, 0.45, true, '°'); // Light Yellow
+        drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#8bb9fe', 0, 20, 0.5, 0.7, true, 'mm'); // Light Blue
+        drawLine(hourlyFcast, p => p.windSpeed, p => p.time, '#adb5bd', 0, 100, 0.75, 0.95, true, 'km/h'); // Light Grey
 
         // Draw Sun at Center
         const sunX = w / 2;
