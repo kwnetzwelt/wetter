@@ -87,6 +87,8 @@
 
 <script>
 (function() {
+    window.v2CurrentAppVersion = '@ViewData["Version"]';
+    
     function getWeatherIcon(code, isDay) {
         if (isDay === undefined) isDay = true;
         const icons = { 
@@ -99,6 +101,11 @@
 
     function updateView() {
         fetch('/Home/Weather').then(r => r.json()).then(d => {
+            if (d.version && d.version !== window.v2CurrentAppVersion) { 
+                performSoftReload(); 
+                return; 
+            }
+            
             document.getElementById('v2-temp-out').innerText = d.currentTemperature != null ? d.currentTemperature.toFixed(1) + '°' : 'N/A';
             document.getElementById('v2-temp-up').innerText = d.upstairsTemperature != null ? d.upstairsTemperature.toFixed(1) + '°' : 'N/A';
             document.getElementById('v2-temp-ground').innerText = d.groundFloorTemperature != null ? d.groundFloorTemperature.toFixed(1) + '°' : 'N/A';
@@ -128,10 +135,22 @@
     updateView();
     let updateInterval = setInterval(updateView, 30000); // 30s update
     
+    // Auto-Reload logic on version change
+    function checkServerStatus() {
+        $.ajax({ url: '/api/health', timeout: 5000, cache: false }).done(function(data) {
+            if (data.version && data.version !== window.v2CurrentAppVersion) { 
+                performSoftReload(); 
+            }
+        });
+    }
+    let healthInterval = setInterval(checkServerStatus, 10000);
+
     // Reload logic
     function performSoftReload() {
         $.ajax({ url: '/Home/V2', cache: false, dataType: 'html', success: function(data) {
             clearInterval(updateInterval);
+            clearInterval(healthInterval);
+            if (window.v2AnimationId) cancelAnimationFrame(window.v2AnimationId);
             const parser = new DOMParser(); 
             const newDoc = parser.parseFromString(data, 'text/html');
             $('body').html(newDoc.querySelector('body').innerHTML);
@@ -371,7 +390,7 @@
         ctx.fillStyle = '#ffc107';
         ctx.fill();
 
-        requestAnimationFrame(drawCanvas);
+        window.v2AnimationId = requestAnimationFrame(drawCanvas);
     }
 
     // Start animation loop
