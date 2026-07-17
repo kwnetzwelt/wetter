@@ -103,5 +103,107 @@
 
     updateView();
     setInterval(updateView, 30000); // 30s update
+
+    function drawCanvas() {
+        const canvas = document.getElementById('v2-sun-curve');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Auto-resize
+        const rect = canvas.parentElement.getBoundingClientRect();
+        if (canvas.width !== rect.width || canvas.height !== rect.height) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        
+        // Draw horizon
+        const horizonY = h / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, horizonY);
+        ctx.lineTo(w, horizonY);
+        ctx.stroke();
+
+        const d = window.v2Data;
+        if (!d) {
+            requestAnimationFrame(drawCanvas);
+            return;
+        }
+
+        const now = new Date();
+        const msPer24h = 24 * 60 * 60 * 1000;
+        const startT = now.getTime() - msPer24h;
+        const endT = now.getTime() + msPer24h;
+        const totalMs = endT - startT;
+
+        function getX(t) {
+            return ((t - startT) / totalMs) * w;
+        }
+
+        function drawLine(dataArray, valSelector, timeSelector, color, minY = 0, maxY = 50) {
+            if (!dataArray || !dataArray.length) return;
+            const pts = dataArray.map(item => ({
+                t: new Date(timeSelector(item)).getTime(),
+                v: valSelector(item)
+            })).filter(p => p.t >= startT && p.t <= endT).sort((a,b) => a.t - b.t);
+
+            if (pts.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            pts.forEach((p, i) => {
+                const x = getX(p.t);
+                // clamp value
+                let val = p.v;
+                if(val < minY) val = minY;
+                if(val > maxY) val = maxY;
+                // Map val to Y: bottom 10% to top 10%
+                const y = h * 0.9 - ((val - minY) / (maxY - minY)) * (h * 0.8);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        // Left Side (-24h)
+        drawLine(d.tempHistory, p => p.value, p => p.time, '#ffc107', -10, 40); // Yellow
+        drawLine(d.precipitationHistory, p => p.value, p => p.time, '#0d6efd', 0, 20); // Blue
+        drawLine(d.windHistory, p => p.value, p => p.time, '#6c757d', 0, 100); // Grey
+
+        // Right Side (+24h)
+        // Filter hourly to future
+        const hourlyFcast = (d.hourly || []).filter(h => new Date(h.time).getTime() > now.getTime());
+        drawLine(hourlyFcast, p => p.temp, p => p.time, '#fff3cd', -10, 40); // Light Yellow
+        drawLine(hourlyFcast, p => p.precipitation, p => p.time, '#8bb9fe', 0, 20); // Light Blue
+        drawLine(hourlyFcast, p => p.windSpeed, p => p.time, '#adb5bd', 0, 100); // Light Grey
+
+        // Draw Sun at Center
+        const sunX = w / 2;
+        const sunY = horizonY;
+        
+        // Pulse effect
+        const pulse = Math.sin(Date.now() / 500) * 5;
+        
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 15 + pulse, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 193, 7, 0.3)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffc107';
+        ctx.fill();
+
+        requestAnimationFrame(drawCanvas);
+    }
+
+    // Start animation loop
+    drawCanvas();
 })();
 </script>
