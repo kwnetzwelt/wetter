@@ -45,7 +45,7 @@ public class HomeController : Controller
         }
     }
 
-    [HttpGet("Home/v2")]
+    
     public async Task<IActionResult> V2()
     {
         try
